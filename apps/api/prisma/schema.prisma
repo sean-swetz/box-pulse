@@ -1,0 +1,455 @@
+// Prisma Schema for RESET 2026 - Multi-Tenant SaaS
+// This defines your database structure
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== MULTI-TENANT: GYMS =====
+
+model Gym {
+  id          String   @id @default(cuid())
+  name        String   // "CrossFit Prosperity"
+  slug        String   @unique // "prosperity" (for subdomains/URLs)
+  
+  // Branding
+  logoUrl         String?
+  primaryColor    String?  @default("#0df259") // Lime green
+  secondaryColor  String?
+  backgroundColor String?
+  
+  // Contact Information
+  ownerEmail      String
+  ownerName       String
+  phone           String?
+  email           String?   // Gym's public email (can be different from owner)
+  website         String?
+  address         String?
+  
+  // Social Media
+  instagramUrl    String?
+  facebookUrl     String?
+  
+  // Features
+  isActive        Boolean  @default(true)
+  plan            String   @default("free") // "free", "pro", "enterprise"
+  
+  // Settings
+  settings        Json?    // Flexible JSON for gym-specific settings
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  memberships     GymMembership[]
+  coaches         GymCoach[]
+  teams           Team[]
+  challenges      Challenge[]
+  invites         GymInvite[]
+  
+  @@index([slug])
+  @@index([isActive])
+}
+
+model GymCoach {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gymId     String
+  gym       Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  teamId    String?  // Optional - which team they coach
+  team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  
+  canMessageTeam   Boolean  @default(true)
+  canViewTeamStats Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, gymId, teamId])
+  @@index([gymId])
+  @@index([userId])
+  @@index([teamId])
+}
+
+model GymMembership {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gymId     String
+  gym       Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  
+  role      String   @default("member") // "owner", "admin", "member"
+  isActive  Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, gymId])
+  @@index([gymId])
+  @@index([userId])
+}
+
+model GymInvite {
+  id        String   @id @default(cuid())
+  gymId     String
+  gym       Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  
+  code      String   @unique // "PROSPERITY2026"
+  maxUses   Int?     // null = unlimited
+  uses      Int      @default(0)
+  expiresAt DateTime?
+  
+  createdBy String   // User ID who created invite
+  createdAt DateTime @default(now())
+  
+  @@index([code])
+  @@index([gymId])
+}
+
+// ===== USER & AUTH =====
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  nickname  String?
+  
+  // Profile
+  photoUrl           String?
+  favoriteMovement   String?
+  favoriteVeggie     String?
+  challengeGoal      String?
+  
+  // Timestamps
+  createdAt          DateTime      @default(now())
+  lastCheckinAt      DateTime?
+  
+  // Relations (multi-gym support)
+  memberships        GymMembership[]
+  coachingAt         GymCoach[]
+  checkins           Checkin[]
+  messages           Message[]
+  teamMessages       TeamMessage[]
+  pointAdjustments   PointAdjustment[]
+  pushTokens         PushToken[]
+  teamMemberships    TeamMembership[]
+  directMessages     DirectMessage[]
+  conversations      ConversationParticipant[]
+  
+  @@index([email])
+}
+
+// ===== TEAMS (per gym, per challenge) =====
+
+model Team {
+  id            String        @id @default(cuid())
+  gymId         String
+  gym           Gym           @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  challengeId   String?
+  challenge     Challenge?    @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  
+  name          String        // "Red Team"
+  color         String        // "#ff0000"
+  logoUrl       String?       // Optional team logo
+  displayName   String?       // Optional custom name
+  
+  totalPoints   Int           @default(0)
+  
+  members       TeamMembership[]
+  teamMessages  TeamMessage[]
+  coaches       GymCoach[]
+  
+  createdAt     DateTime      @default(now())
+  
+  @@index([gymId])
+  @@index([challengeId])
+  @@index([totalPoints])
+}
+
+model TeamMembership {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  isCaptain Boolean  @default(false)
+  points    Int      @default(0) // Points earned in this team/challenge
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, teamId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+// ===== CHALLENGES =====
+
+model Challenge {
+  id          String   @id @default(cuid())
+  gymId       String
+  gym         Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  
+  name        String   // "Reset 2026"
+  description String?
+  
+  startDate   DateTime
+  endDate     DateTime
+  
+  isActive    Boolean  @default(true)
+  
+  // Check-in window settings
+  checkinWindowEnabled Boolean @default(true)
+  
+  // Auto-scheduling (optional - if null, manual control)
+  checkinAutoOpen      Boolean  @default(false)
+  checkinOpenDay       String?  // "SUNDAY", "MONDAY", etc.
+  checkinOpenTime      String?  // "17:00" (5:00 PM in 24hr format)
+  checkinCloseDay      String?  // "MONDAY", "TUESDAY", etc.
+  checkinCloseTime     String?  // "17:00"
+  checkinTimezone      String   @default("America/New_York")
+  
+  // Current state
+  checkinWindowOpen    Boolean  @default(true)
+  
+  // Relations
+  teams       Team[]
+  criteria    Criteria[]
+  checkins    Checkin[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([gymId])
+  @@index([isActive])
+}
+
+// ===== CHECK-IN SYSTEM =====
+
+model Criteria {
+  id          String    @id @default(cuid())
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  type        String    // "daily", "weekly", "counter"
+  points      Int       // Points per unit (can be negative)
+  maxCount    Int?      // For counter type (e.g., max 10 drinks)
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([challengeId])
+  @@index([order])
+  @@index([isActive])
+}
+
+model Checkin {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  challengeId  String
+  challenge    Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  
+  weeklyScore  Int
+  criteriaData Json      // Stores which criteria were checked and values
+  feedback     String?
+  appFeedback  String?
+  
+  createdAt    DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([challengeId])
+  @@index([createdAt])
+}
+
+model CheckinDraft {
+  id           String   @id @default(cuid())
+  userId       String
+  challengeId  String
+  
+  criteriaData Json     // Draft state of checkboxes/counters
+  
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([userId, challengeId])
+}
+
+// ===== MESSAGING =====
+
+model Conversation {
+  id          String   @id @default(cuid())
+  type        String   // "dm", "team", "gym"
+  gymId       String?  // For gym and team chats
+  teamId      String?  // For team chats only
+  
+  name        String?  // Optional custom name for group chats
+  
+  lastMessageAt DateTime?
+  
+  participants ConversationParticipant[]
+  messages     ConversationMessage[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([gymId])
+  @@index([teamId])
+  @@index([type])
+}
+
+model ConversationParticipant {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  lastReadAt     DateTime?
+  unreadCount    Int      @default(0)
+  
+  joinedAt       DateTime @default(now())
+  
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model ConversationMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  
+  text           String?
+  imageUrl       String?
+  gifUrl         String?
+  gifTitle       String?
+  
+  replyToId      String?  // For threading
+  replyTo        ConversationMessage? @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies        ConversationMessage[] @relation("MessageReplies")
+  
+  reactions      Json?    // { "userId1": "👍", "userId2": "❤️" }
+  
+  deletedAt      DateTime?
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([conversationId, createdAt])
+  @@index([userId])
+}
+
+model DirectMessage {
+  id        String   @id @default(cuid())
+  fromId    String
+  from      User     @relation(fields: [fromId], references: [id], onDelete: Cascade)
+  toId      String
+  
+  text      String?
+  imageUrl  String?
+  gifUrl    String?
+  
+  readAt    DateTime?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([fromId, toId])
+  @@index([createdAt])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  gymId     String   // Gym-scoped locker room
+  
+  text      String?
+  gifUrl    String?
+  gifTitle  String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([gymId, createdAt])
+}
+
+model TeamMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  text      String?
+  gifUrl    String?
+  gifTitle  String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([teamId, createdAt])
+}
+
+// ===== ADMIN =====
+
+model PointAdjustment {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  gymId       String   // Which gym this adjustment is for
+  
+  points      Int      // Can be positive or negative
+  reason      String
+  adjustedBy  String   // Admin email
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([gymId])
+}
+
+// ===== SETTINGS =====
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value Json
+  
+  updatedAt DateTime @updatedAt
+}
+
+// ===== PUSH NOTIFICATIONS =====
+
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  token     String   @unique
+  platform  String   // "ios" or "android"
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+}
+
+// ===== CHECK-IN WINDOW SCHEDULER =====
+
+model CheckinWindowState {
+  id          String   @id @default(cuid())
+  challengeId String   @unique
+  
+  isOpen      Boolean  @default(false)
+  lastOpened  DateTime?
+  lastClosed  DateTime?
+  
+  updatedAt   DateTime @updatedAt
+}

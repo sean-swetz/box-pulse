@@ -1,0 +1,357 @@
+// Prisma Schema for RESET 2026 - Multi-Tenant SaaS Platform
+// Supports multiple gyms, each with their own challenges, teams, and members
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== GYMS (MULTI-TENANT) =====
+
+model Gym {
+  id          String   @id @default(cuid())
+  name        String   // "CrossFit Prosperity"
+  slug        String   @unique // "prosperity" (for URLs/invite links)
+  
+  // Branding
+  logoUrl      String?
+  primaryColor String  @default("#0df259") // Lime green
+  accentColor  String  @default("#102216") // Dark green
+  
+  // Subscription & Limits
+  plan         String  @default("free") // "free", "pro", "enterprise"
+  isActive     Boolean @default(true)
+  maxMembers   Int?    @default(50)
+  maxChallenges Int?   @default(1)
+  
+  // Settings
+  timezone     String  @default("America/New_York")
+  
+  // Relations
+  memberships  GymMembership[]
+  teams        Team[]
+  challenges   Challenge[]
+  inviteLinks  InviteLink[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([slug])
+  @@index([isActive])
+}
+
+// ===== GYM MEMBERSHIP (Users can belong to multiple gyms) =====
+
+model GymMembership {
+  id        String   @id @default(cuid())
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  gymId     String
+  gym       Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  
+  // Role in this specific gym
+  role      String   @default("member") // "member", "admin", "owner"
+  
+  // Team assignment (per gym)
+  teamId    String?
+  team      Team?    @relation(fields: [teamId], references: [id])
+  isCaptain Boolean  @default(false)
+  
+  // Points (per gym)
+  totalPoints Int    @default(0)
+  
+  // Visibility
+  hiddenFromLeaderboard Boolean @default(false)
+  
+  // Status
+  isActive    Boolean  @default(true)
+  joinedAt    DateTime @default(now())
+  lastActive  DateTime @default(now())
+  
+  // Relations
+  checkins         Checkin[]
+  pointAdjustments PointAdjustment[]
+  
+  @@unique([userId, gymId])
+  @@index([gymId])
+  @@index([userId])
+  @@index([teamId])
+  @@index([totalPoints])
+}
+
+// ===== USERS (Global account) =====
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  nickname  String?
+  
+  // Global profile
+  photoUrl           String?
+  favoriteMovement   String?
+  favoriteVeggie     String?
+  challengeGoal      String?
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  lastCheckinAt DateTime?
+  
+  // Relations
+  memberships   GymMembership[]
+  checkins      Checkin[]
+  messages      Message[]
+  teamMessages  TeamMessage[]
+  pushTokens    PushToken[]
+  
+  @@index([email])
+}
+
+// ===== INVITE LINKS =====
+
+model InviteLink {
+  id        String   @id @default(cuid())
+  
+  gymId     String
+  gym       Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  
+  code      String   @unique // "prosperity-abc123"
+  
+  // Optional settings
+  teamId    String?  // Auto-assign to team
+  role      String   @default("member")
+  
+  // Limits
+  maxUses   Int?     // null = unlimited
+  usedCount Int      @default(0)
+  expiresAt DateTime?
+  
+  // Status
+  isActive  Boolean  @default(true)
+  
+  createdBy String   // userId
+  createdAt DateTime @default(now())
+  
+  @@index([gymId])
+  @@index([code])
+}
+
+// ===== TEAMS (Per Gym) =====
+
+model Team {
+  id            String   @id @default(cuid())
+  
+  gymId         String
+  gym           Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  
+  name          String   // "Red Team", "Iron Warriors"
+  color         String   // "#ff0000"
+  logoUrl       String?  // Custom team logo
+  
+  order         Int      @default(0)
+  totalPoints   Int      @default(0)
+  
+  // Relations
+  members       GymMembership[]
+  teamMessages  TeamMessage[]
+  
+  createdAt     DateTime @default(now())
+  
+  @@unique([gymId, name])
+  @@index([gymId])
+  @@index([totalPoints])
+}
+
+// ===== CHALLENGES (Per Gym) =====
+
+model Challenge {
+  id          String   @id @default(cuid())
+  
+  gymId       String
+  gym         Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  
+  name        String   // "Reset 2026"
+  description String?
+  
+  // Timeline
+  startDate   DateTime
+  endDate     DateTime
+  
+  // Check-in Window Settings (AUTO OPEN/CLOSE)
+  checkinWindowEnabled Boolean  @default(true)
+  checkinOpenDay       Int?     // 0=Sunday, 1=Monday, etc.
+  checkinOpenTime      String?  // "17:00" (5:00 PM)
+  checkinCloseDay      Int?     // Day of week
+  checkinCloseTime     String?  // "17:00"
+  
+  // Manual override
+  isCheckinWindowOpen  Boolean  @default(false)
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Relations
+  criteria    Criteria[]
+  checkins    Checkin[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([gymId])
+  @@index([isActive])
+  @@index([startDate, endDate])
+}
+
+// ===== CRITERIA (Per Challenge) =====
+
+model Criteria {
+  id          String   @id @default(cuid())
+  
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  type        String   // "daily", "weekly", "counter"
+  points      Int      // Points per unit (can be negative)
+  maxCount    Int?     // For counter type
+  
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([challengeId])
+  @@index([order])
+}
+
+// ===== CHECK-INS =====
+
+model Checkin {
+  id           String   @id @default(cuid())
+  
+  membershipId String
+  membership   GymMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  challengeId  String
+  challenge    Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  
+  weeklyScore  Int
+  criteriaData Json     // Stores which criteria were checked
+  feedback     String?
+  appFeedback  String?
+  
+  createdAt    DateTime @default(now())
+  
+  @@index([membershipId])
+  @@index([challengeId])
+  @@index([createdAt])
+}
+
+model CheckinDraft {
+  id           String   @id @default(cuid())
+  userId       String
+  challengeId  String
+  
+  criteriaData Json
+  
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([userId, challengeId])
+}
+
+// ===== MESSAGING =====
+
+model Message {
+  id        String   @id @default(cuid())
+  
+  gymId     String   // Locker room is per-gym
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  text      String?
+  gifUrl    String?
+  gifTitle  String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([gymId, createdAt])
+}
+
+model TeamMessage {
+  id        String   @id @default(cuid())
+  
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  text      String?
+  gifUrl    String?
+  gifTitle  String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([teamId, createdAt])
+}
+
+// ===== ADMIN =====
+
+model PointAdjustment {
+  id           String   @id @default(cuid())
+  
+  membershipId String
+  membership   GymMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  
+  points       Int
+  reason       String
+  adjustedBy   String   // Admin user email
+  
+  createdAt    DateTime @default(now())
+  
+  @@index([membershipId])
+}
+
+// ===== SETTINGS =====
+
+model Setting {
+  id        String @id @default(cuid())
+  gymId     String // Per-gym settings
+  
+  key       String
+  value     Json
+  
+  updatedAt DateTime @updatedAt
+  
+  @@unique([gymId, key])
+  @@index([gymId])
+}
+
+// ===== PUSH NOTIFICATIONS =====
+
+model PushToken {
+  id        String   @id @default(cuid())
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  token     String   @unique
+  platform  String   // "ios" or "android"
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+}
