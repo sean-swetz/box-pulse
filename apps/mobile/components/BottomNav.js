@@ -1,21 +1,21 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { router, usePathname } from 'expo-router';
-import { Home, CheckCircle, Trophy, MessageCircle, GraduationCap } from 'lucide-react-native';
+import { Home, CheckCircle, Trophy, MessageCircle, Settings, User } from 'lucide-react-native';
 import { useAuthStore } from '../store/authStore';
 
 export default function BottomNav() {
   const pathname = usePathname();
   const selectedGym = useAuthStore((state) => state.selectedGym);
-  
-  // Check if user is a coach
-  const isCoach = selectedGym?.isCoach || false;
+
+  const isAdmin = selectedGym?.role === 'owner' || selectedGym?.role === 'admin';
 
   const tabs = [
     { name: 'Dashboard', path: '/(app)/dashboard', icon: Home },
     { name: 'Check-in', path: '/(app)/checkin', icon: CheckCircle },
     { name: 'Leaderboard', path: '/(app)/leaderboard', icon: Trophy },
     { name: 'Chat', path: '/(app)/chat', icon: MessageCircle },
-    ...(isCoach ? [{ name: 'Coach', path: '/(app)/coach-dashboard', icon: GraduationCap }] : []),
+    ...(isAdmin ? [{ name: 'Admin', path: '/(app)/admin', icon: Settings }] : []),
+    { name: 'Profile', path: '/(app)/profile', icon: User },
   ];
 
   return (

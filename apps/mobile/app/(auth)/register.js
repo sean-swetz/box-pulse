@@ -27,7 +27,7 @@ export default function RegisterScreen() {
     try {
       const response = await authAPI.register({ name, email, password });
       await setAuth(response.data.user, response.data.token);
-      router.replace('/(app)/dashboard');
+      router.replace('/gym-select');
     } catch (error) {
       Alert.alert('Registration Failed', error.response?.data?.error || error.message || 'Could not create account');
     } finally {

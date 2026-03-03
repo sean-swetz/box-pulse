@@ -22,7 +22,7 @@ export default function LoginScreen() {
     try {
       const response = await authAPI.login({ email, password });
       await setAuth(response.data.user, response.data.token);
-      router.replace('/(app)/dashboard');
+      router.replace('/gym-select');
     } catch (error) {
       Alert.alert('Login Failed', error.response?.data?.error || 'Invalid credentials');
     } finally {

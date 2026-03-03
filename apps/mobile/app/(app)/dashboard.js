@@ -1,7 +1,12 @@
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 import { CheckCircle, Trophy, MessageCircle, Settings } from 'lucide-react-native';
+import { useAuthStore } from '../../store/authStore';
 
 export default function DashboardScreen() {
+  const { user, selectedGym } = useAuthStore();
+  const isAdmin = selectedGym?.role === 'owner' || selectedGym?.role === 'admin';
+
   return (
     <ScrollView className="flex-1 bg-background-dark">
       {/* Header */}
@@ -9,11 +14,16 @@ export default function DashboardScreen() {
         <View className="flex-row items-center justify-between">
           <View>
             <Text className="text-white text-3xl font-bold">Dashboard</Text>
-            <Text className="text-slate-400 mt-1">Welcome back! 👋</Text>
+            <Text className="text-slate-400 mt-1">{selectedGym?.name ?? 'Welcome back'}</Text>
           </View>
-          <TouchableOpacity className="p-2 bg-slate-700 rounded-lg">
-            <Settings size={24} color="#ffffff" strokeWidth={2} />
-          </TouchableOpacity>
+          {isAdmin && (
+            <TouchableOpacity
+              onPress={() => router.push('/(app)/admin')}
+              className="p-2 bg-primary/20 rounded-lg"
+            >
+              <Settings size={24} color="#0df259" strokeWidth={2} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 

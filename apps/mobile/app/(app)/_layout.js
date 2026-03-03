@@ -11,6 +11,7 @@ export default function AppLayout() {
         <Stack.Screen name="leaderboard" />
         <Stack.Screen name="chat" />
         <Stack.Screen name="profile" />
+        <Stack.Screen name="admin" />
         <Stack.Screen name="coach-dashboard" />
       </Stack>
       <BottomNav />
