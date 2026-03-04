@@ -548,12 +548,14 @@ function AddGoalModal({ visible, onClose, onCreated }) {
                     ))}
                   </View>
 
-                  <Text className="text-slate-400 text-xs uppercase tracking-wide mb-2">Target Weight</Text>
+                  <Text className="text-slate-400 text-xs uppercase tracking-wide mb-2">
+                    Amount to {direction === 'lose' ? 'Lose' : 'Gain'}
+                  </Text>
                   <TextInput
                     value={targetWeight}
                     onChangeText={setTargetWeight}
                     keyboardType="numeric"
-                    placeholder="e.g. 185"
+                    placeholder="e.g. 15"
                     placeholderTextColor="#475569"
                     className="bg-slate-800 text-white px-4 py-3 rounded-xl border border-slate-600 mb-4 text-base"
                   />
