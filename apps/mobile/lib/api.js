@@ -82,6 +82,7 @@ export const adminAPI = {
   getMembers: (gymId) => api.get(`/admin/members?gymId=${gymId}`),
   assignTeam: (userId, gymId, teamId) => api.put(`/admin/users/${userId}/team`, { gymId, teamId }),
   adjustPoints: (data) => api.post('/admin/points', data),
+  setCoach: (userId, gymId, isCoach) => api.put(`/admin/users/${userId}/coach`, { gymId, isCoach }),
 };
 
 // Coach endpoints

@@ -72,6 +72,13 @@ router.get('/members', authenticateToken, async (req, res) => {
       orderBy: { createdAt: 'asc' },
     });
 
+    // Fetch coach records for this gym in one query
+    const coachRecords = await prisma.gymCoach.findMany({
+      where: { gymId },
+      select: { userId: true, id: true },
+    });
+    const coachMap = Object.fromEntries(coachRecords.map((c) => [c.userId, c.id]));
+
     const members = memberships.map((m) => ({
       id: m.user.id,
       name: m.user.name,
@@ -80,6 +87,8 @@ router.get('/members', authenticateToken, async (req, res) => {
       role: m.role,
       teams: m.user.teamMemberships.map((tm) => tm.team),
       adjustedPoints: m.user.pointAdjustments.reduce((sum, p) => sum + p.points, 0),
+      isCoach: !!coachMap[m.user.id],
+      coachId: coachMap[m.user.id] ?? null,
     }));
 
     res.json(members);
@@ -118,6 +127,34 @@ router.put('/users/:id/team', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Assign team error:', error);
     res.status(500).json({ error: 'Failed to assign team' });
+  }
+});
+
+// PUT /api/admin/users/:id/coach
+router.put('/users/:id/coach', authenticateToken, async (req, res) => {
+  try {
+    const { gymId, isCoach } = req.body;
+    if (!gymId) return res.status(400).json({ error: 'gymId required' });
+    if (!await requireGymAdmin(req, res, gymId)) return;
+
+    const targetMembership = await prisma.gymMembership.findUnique({
+      where: { userId_gymId: { userId: req.params.id, gymId } },
+    });
+    if (!targetMembership) return res.status(400).json({ error: 'User is not a member of this gym' });
+
+    if (isCoach) {
+      const existing = await prisma.gymCoach.findFirst({ where: { userId: req.params.id, gymId } });
+      if (!existing) {
+        await prisma.gymCoach.create({ data: { userId: req.params.id, gymId } });
+      }
+    } else {
+      await prisma.gymCoach.deleteMany({ where: { userId: req.params.id, gymId } });
+    }
+
+    res.json({ success: true, isCoach: !!isCoach });
+  } catch (error) {
+    console.error('Set coach error:', error);
+    res.status(500).json({ error: 'Failed to update coach status' });
   }
 });
 

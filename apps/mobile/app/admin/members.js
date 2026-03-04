@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  ActivityIndicator, Alert, Modal,
+  ActivityIndicator, Alert, Modal, Switch,
 } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowLeft, Search, ChevronRight, X } from 'lucide-react-native';
@@ -15,7 +15,9 @@ export default function MembersAdmin() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedMember, setSelectedMember] = useState(null);
-  const [activeTab, setActiveTab] = useState('team'); // 'team' | 'points'
+  const [activeTab, setActiveTab] = useState('team'); // 'team' | 'points' | 'coach'
+  const [coachToggle, setCoachToggle] = useState(false);
+  const [togglingCoach, setTogglingCoach] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [pointsForm, setPointsForm] = useState({ amount: '', reason: '' });
   const [saving, setSaving] = useState(false);
@@ -42,6 +44,7 @@ export default function MembersAdmin() {
     setSelectedTeamId(member.teams?.[0]?.id ?? '');
     setActiveTab('team');
     setPointsForm({ amount: '', reason: '' });
+    setCoachToggle(member.isCoach ?? false);
   };
 
   const handleAssignTeam = async () => {
@@ -61,6 +64,25 @@ export default function MembersAdmin() {
       Alert.alert('Error', e.response?.data?.error || 'Failed to assign team');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleToggleCoach = async (newValue) => {
+    setCoachToggle(newValue);
+    setTogglingCoach(true);
+    try {
+      await adminAPI.setCoach(selectedMember.id, selectedGym.id, newValue);
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === selectedMember.id ? { ...m, isCoach: newValue } : m
+        )
+      );
+      setSelectedMember((prev) => ({ ...prev, isCoach: newValue }));
+    } catch (e) {
+      setCoachToggle(!newValue); // revert
+      Alert.alert('Error', e.response?.data?.error || 'Failed to update coach status');
+    } finally {
+      setTogglingCoach(false);
     }
   };
 
@@ -153,6 +175,11 @@ export default function MembersAdmin() {
                         <Text className="text-primary text-xs capitalize">{member.role}</Text>
                       </View>
                     )}
+                    {member.isCoach && (
+                      <View className="bg-blue-500/20 px-1.5 py-0.5 rounded">
+                        <Text className="text-blue-400 text-xs">Coach</Text>
+                      </View>
+                    )}
                   </View>
                   <Text className="text-slate-500 text-xs mt-0.5">{member.email}</Text>
                   <View className="flex-row items-center gap-3 mt-1 flex-wrap">
@@ -201,22 +228,52 @@ export default function MembersAdmin() {
 
             {/* Tab Switcher */}
             <View className="flex-row bg-slate-800 rounded-xl p-1 mb-5">
-              {['team', 'points'].map((tab) => (
+              {[
+                { key: 'team', label: 'Team' },
+                { key: 'points', label: 'Points' },
+                { key: 'coach', label: 'Coach' },
+              ].map(({ key, label }) => (
                 <TouchableOpacity
-                  key={tab}
-                  onPress={() => setActiveTab(tab)}
-                  className={`flex-1 py-2 rounded-lg items-center ${activeTab === tab ? 'bg-primary' : ''}`}
+                  key={key}
+                  onPress={() => setActiveTab(key)}
+                  className={`flex-1 py-2 rounded-lg items-center ${activeTab === key ? 'bg-primary' : ''}`}
                 >
                   <Text
-                    className={`font-semibold text-sm ${activeTab === tab ? 'text-background-dark' : 'text-slate-400'}`}
+                    className={`font-semibold text-sm ${activeTab === key ? 'text-background-dark' : 'text-slate-400'}`}
                   >
-                    {tab === 'team' ? 'Assign Team' : 'Adjust Points'}
+                    {label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            {activeTab === 'team' ? (
+            {activeTab === 'coach' ? (
+              <View>
+                <View className="bg-slate-800 rounded-xl px-5 py-4 border border-slate-700 flex-row items-center justify-between mb-4">
+                  <View className="flex-1 mr-4">
+                    <Text className="text-white font-semibold text-base">Coach Access</Text>
+                    <Text className="text-slate-400 text-sm mt-1">
+                      Coaches can view team reports and access the Coach Dashboard
+                    </Text>
+                  </View>
+                  {togglingCoach ? (
+                    <ActivityIndicator color="#0df259" />
+                  ) : (
+                    <Switch
+                      value={coachToggle}
+                      onValueChange={handleToggleCoach}
+                      trackColor={{ false: '#334155', true: '#0df259' }}
+                      thumbColor={coachToggle ? '#102216' : '#94a3b8'}
+                    />
+                  )}
+                </View>
+                <Text className="text-slate-500 text-xs text-center">
+                  {coachToggle
+                    ? `${selectedMember?.name} can access Coach Dashboard and view team reports.`
+                    : `${selectedMember?.name} does not have coach access.`}
+                </Text>
+              </View>
+            ) : activeTab === 'team' ? (
               <>
                 <View className="gap-2 mb-5">
                   {/* No-team option */}
