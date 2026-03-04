@@ -28,6 +28,12 @@ export const authAPI = {
   me: () => api.get('/auth/me'),
 };
 
+// User endpoints
+export const userAPI = {
+  getStats: (gymId) => api.get(`/users/me/stats?gymId=${gymId}`),
+  updateProfile: (data) => api.put('/users/me', data),
+};
+
 // Gym endpoints
 export const gymAPI = {
   create: (data) => api.post('/gyms', data),
@@ -59,8 +65,8 @@ export const checkinAPI = {
 
 // Leaderboard endpoints
 export const leaderboardAPI = {
-  individual: (challengeId) => api.get(`/leaderboard/individual?challengeId=${challengeId}`),
-  teams: (challengeId) => api.get(`/leaderboard/teams?challengeId=${challengeId}`),
+  individual: (challengeId, gymId) => api.get(`/leaderboard/individual?challengeId=${challengeId}&gymId=${gymId}`),
+  teams: (challengeId, gymId) => api.get(`/leaderboard/teams?challengeId=${challengeId}&gymId=${gymId}`),
 };
 
 // Team endpoints
@@ -78,12 +84,46 @@ export const adminAPI = {
   adjustPoints: (data) => api.post('/admin/points', data),
 };
 
+// Coach endpoints
+export const coachAPI = {
+  getMyTeams: () => api.get('/coaches/my-teams'),
+};
+
 // Message endpoints
 export const messageAPI = {
   getLockerRoom: (gymId) => api.get(`/messages/locker-room?gymId=${gymId}`),
   postLockerRoom: (data) => api.post('/messages/locker-room', data),
   getTeam: (teamId) => api.get(`/messages/team/${teamId}`),
   postTeam: (teamId, data) => api.post(`/messages/team/${teamId}`, data),
+};
+
+// Recipe endpoints
+export const recipeAPI = {
+  list: (gymId, category) => api.get(`/recipes?gymId=${gymId}${category && category !== 'All' ? `&category=${encodeURIComponent(category)}` : ''}`),
+  create: (data) => api.post('/recipes', data),
+  get: (id) => api.get(`/recipes/${id}`),
+  update: (id, data) => api.put(`/recipes/${id}`, data),
+  delete: (id) => api.delete(`/recipes/${id}`),
+  like: (id) => api.post(`/recipes/${id}/like`),
+};
+
+// Report endpoints (coach/admin)
+export const reportAPI = {
+  member: (userId, gymId, challengeId) =>
+    api.get(`/reports/member/${userId}?gymId=${gymId}&challengeId=${challengeId}`),
+  team: (teamId, challengeId) =>
+    api.get(`/reports/team/${teamId}?challengeId=${challengeId}`),
+  gym: (gymId, challengeId) =>
+    api.get(`/reports/gym/${gymId}?challengeId=${challengeId}`),
+};
+
+// Goal endpoints
+export const goalAPI = {
+  list: () => api.get('/goals'),
+  create: (data) => api.post('/goals', data),
+  update: (id, data) => api.put(`/goals/${id}`, data),
+  delete: (id) => api.delete(`/goals/${id}`),
+  getForUser: (userId) => api.get(`/goals/user/${userId}`),
 };
 
 export default api;

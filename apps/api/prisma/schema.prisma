@@ -52,6 +52,7 @@ model Gym {
   teams           Team[]
   challenges      Challenge[]
   invites         GymInvite[]
+  recipes         Recipe[]
   
   @@index([slug])
   @@index([isActive])
@@ -141,7 +142,10 @@ model User {
   teamMemberships    TeamMembership[]
   directMessages     DirectMessage[]
   conversations      ConversationParticipant[]
-  
+  recipes            Recipe[]            @relation("RecipeAuthor")
+  recipeLikes        RecipeLike[]
+  goals              UserGoal[]
+
   @@index([email])
 }
 
@@ -398,6 +402,39 @@ model TeamMessage {
   @@index([teamId, createdAt])
 }
 
+// ===== USER GOALS =====
+
+model UserGoal {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      String   // "weight" | "lift" | "other"
+  isPublic  Boolean  @default(false)
+
+  // Weight goal
+  direction    String?  // "gain" | "lose"
+
+  // Weight + Lift shared
+  targetWeight Float?
+  unit         String?  // "lbs" | "kg"
+
+  // Lift only
+  liftName     String?
+
+  // Other only
+  text         String?
+
+  // Progress tracking (updated during check-in)
+  currentValue  Float?   // current weight or current lift PR
+  progressNote  String?  // free-form progress note
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}
+
 // ===== ADMIN =====
 
 model PointAdjustment {
@@ -438,6 +475,47 @@ model PushToken {
   
   createdAt DateTime @default(now())
   
+  @@index([userId])
+}
+
+// ===== RECIPES =====
+
+model Recipe {
+  id          String   @id @default(cuid())
+  gymId       String
+  gym         Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User     @relation("RecipeAuthor", fields: [authorId], references: [id])
+
+  title       String
+  description String?
+  imageUrl    String?
+  category    String?   // "High Protein", "Vegetarian", "Snack", "Meal Prep"
+  tags        String[]
+
+  ingredients Json      // [{ amount: "1 cup", item: "oats" }]
+  instructions Json     // [{ step: 1, text: "..." }]
+  macros      Json?     // { calories: Int, protein: Int, carbs: Int, fat: Int }
+
+  likesCount  Int       @default(0)
+  likes       RecipeLike[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([gymId])
+  @@index([authorId])
+}
+
+model RecipeLike {
+  id        String   @id @default(cuid())
+  recipeId  String
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([recipeId, userId])
   @@index([userId])
 }
 

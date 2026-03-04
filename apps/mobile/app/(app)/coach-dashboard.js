@@ -1,21 +1,18 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
-import { MessageCircle, Eye } from 'lucide-react-native';
-import axios from 'axios';
+import { MessageCircle, Eye, BarChart2, Building2 } from 'lucide-react-native';
 import { useAuthStore } from '../../store/authStore';
+import { coachAPI } from '../../lib/api';
 
 export default function CoachDashboard() {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const token = useAuthStore((state) => state.token);
 
   const fetchTeams = async () => {
     try {
-      const response = await axios.get('/api/coaches/my-teams', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await coachAPI.getMyTeams();
       setTeams(response.data);
     } catch (error) {
       console.error('Failed to fetch teams:', error);
@@ -46,8 +43,19 @@ export default function CoachDashboard() {
     <View className="flex-1 bg-background-dark">
       {/* Header */}
       <View className="bg-surface-dark px-6 pt-16 pb-6 border-b border-slate-700">
-        <Text className="text-white text-3xl font-bold">Coach Dashboard</Text>
-        <Text className="text-slate-400 mt-1">Manage your teams</Text>
+        <View className="flex-row items-center justify-between">
+          <View>
+            <Text className="text-white text-3xl font-bold">Coach Dashboard</Text>
+            <Text className="text-slate-400 mt-1">Manage your teams</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => router.push('/(app)/reports')}
+            className="flex-row items-center gap-2 bg-slate-800 px-4 py-2.5 rounded-xl border border-slate-600"
+          >
+            <Building2 size={16} color="#94a3b8" strokeWidth={2} />
+            <Text className="text-slate-300 font-semibold text-sm">Gym Report</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -154,21 +162,23 @@ function TeamCard({ coaching }) {
       )}
 
       {/* Actions */}
-      <View className="flex-row gap-3">
-        <TouchableOpacity 
-          className="flex-1 bg-primary/10 border border-primary py-3.5 rounded-xl flex-row items-center justify-center gap-2"
-          onPress={() => router.push(`/chat/team/${team.id}`)}
-        >
-          <MessageCircle size={18} color="#0df259" strokeWidth={2} />
-          <Text className="text-primary font-bold">Team Chat</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          className="flex-1 bg-slate-700 py-3.5 rounded-xl flex-row items-center justify-center gap-2"
-          onPress={() => router.push(`/coach/team/${team.id}`)}
-        >
-          <Eye size={18} color="#ffffff" strokeWidth={2} />
-          <Text className="text-white font-bold">View Details</Text>
-        </TouchableOpacity>
+      <View className="gap-2">
+        <View className="flex-row gap-2">
+          <TouchableOpacity
+            className="flex-1 bg-primary/10 border border-primary py-3.5 rounded-xl flex-row items-center justify-center gap-2"
+            onPress={() => router.push(`/chat/team/${team.id}`)}
+          >
+            <MessageCircle size={18} color="#0df259" strokeWidth={2} />
+            <Text className="text-primary font-bold">Team Chat</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="flex-1 bg-slate-700 py-3.5 rounded-xl flex-row items-center justify-center gap-2"
+            onPress={() => router.push({ pathname: '/(app)/reports', params: { teamId: team.id } })}
+          >
+            <BarChart2 size={18} color="#ffffff" strokeWidth={2} />
+            <Text className="text-white font-bold">Reports</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );

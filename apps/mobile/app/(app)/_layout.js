@@ -13,6 +13,8 @@ export default function AppLayout() {
         <Stack.Screen name="profile" />
         <Stack.Screen name="admin" />
         <Stack.Screen name="coach-dashboard" />
+        <Stack.Screen name="recipes" />
+        <Stack.Screen name="reports" />
       </Stack>
       <BottomNav />
     </View>

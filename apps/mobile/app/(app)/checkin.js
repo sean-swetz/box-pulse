@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowLeft, ArrowRight, User, Save } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, User, Save, Target } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../store/authStore';
+import { gymAPI, checkinAPI, goalAPI } from '../../lib/api';
 
 const DRAFT_KEY = 'checkin_draft';
 
@@ -25,20 +26,24 @@ export default function CheckinScreen() {
     }
   });
   const [draftSaved, setDraftSaved] = useState(false);
-  
-  const { user } = useAuthStore();
-  const totalSteps = 3;
+  const [activeChallenge, setActiveChallenge] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Goals state
+  const [goals, setGoals] = useState([]);
+  const [goalUpdates, setGoalUpdates] = useState({}); // { [goalId]: { currentValue: '', progressNote: '' } }
+
+  const { user, selectedGym } = useAuthStore();
+  const totalSteps = goals.length > 0 ? 4 : 3;
   const progress = (currentStep / totalSteps) * 100;
   const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
   // Calculate points
   const calculatePoints = () => {
     let points = 0;
-    // Daily goals: 5 pts per day
     Object.values(formData.dailyGoals).forEach(week => {
       points += week.filter(Boolean).length * 5;
     });
-    // Weekly milestones: 15 pts each
     if (formData.weekly.attendClasses) points += 15;
     if (formData.weekly.noRestrictedFoods) points += 15;
     return points;
@@ -46,12 +51,32 @@ export default function CheckinScreen() {
 
   const currentPoints = calculatePoints();
 
-  // Load draft on mount
   useEffect(() => {
+    loadActiveChallenge();
     loadDraft();
+    loadGoals();
   }, []);
 
-  // Save draft when formData changes
+  const loadActiveChallenge = async () => {
+    if (!selectedGym?.id) return;
+    try {
+      const res = await gymAPI.getChallenges(selectedGym.id);
+      const active = res.data.find(c => c.isActive);
+      setActiveChallenge(active ?? null);
+    } catch (e) {
+      console.error('Failed to load challenge:', e);
+    }
+  };
+
+  const loadGoals = async () => {
+    try {
+      const res = await goalAPI.list();
+      setGoals(res.data);
+    } catch (e) {
+      console.error('Failed to load goals:', e);
+    }
+  };
+
   useEffect(() => {
     saveDraft();
   }, [formData]);
@@ -104,10 +129,38 @@ export default function CheckinScreen() {
   };
 
   const handleSubmit = async () => {
-    // TODO: Submit to API
-    console.log('Submitting:', formData, 'Points:', currentPoints);
-    await clearDraft();
-    router.push('/checkin/success');
+    if (!activeChallenge) {
+      Alert.alert('No Active Challenge', 'There is no active challenge to submit to right now.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      // Fire-and-forget goal progress updates
+      const goalUpdateEntries = Object.entries(goalUpdates).filter(([, v]) => v.currentValue !== '' || v.progressNote !== '');
+      if (goalUpdateEntries.length > 0) {
+        await Promise.allSettled(
+          goalUpdateEntries.map(([goalId, update]) => {
+            const payload = {};
+            if (update.currentValue !== '') payload.currentValue = parseFloat(update.currentValue);
+            if (update.progressNote !== '') payload.progressNote = update.progressNote;
+            return goalAPI.update(goalId, payload);
+          })
+        );
+      }
+
+      await checkinAPI.submit({
+        challengeId: activeChallenge.id,
+        criteriaData: formData,
+        weeklyScore: currentPoints,
+      });
+      await clearDraft();
+      router.replace(`/checkin/success?points=${currentPoints}`);
+    } catch (e) {
+      const msg = e.response?.data?.error || 'Failed to submit check-in';
+      Alert.alert('Submission Error', msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -118,7 +171,7 @@ export default function CheckinScreen() {
           <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">
             <ArrowLeft size={24} color="#ffffff" strokeWidth={2} />
           </TouchableOpacity>
-          
+
           <View className="flex-row items-center gap-3">
             {draftSaved && (
               <View className="flex-row items-center gap-2 bg-primary/10 px-3 py-1 rounded-full">
@@ -142,7 +195,7 @@ export default function CheckinScreen() {
           <Text className="text-white text-2xl font-bold">Weekly Check-In</Text>
           <Text className="text-slate-400 text-sm mt-1">Step {currentStep} of {totalSteps}</Text>
         </View>
-        
+
         <View className="bg-slate-800 h-2 rounded-full overflow-hidden">
           <View className="bg-primary h-full rounded-full" style={{ width: `${progress}%` }} />
         </View>
@@ -152,6 +205,13 @@ export default function CheckinScreen() {
         {currentStep === 1 && <Step1DailyGoals formData={formData} toggleDay={toggleDay} days={days} />}
         {currentStep === 2 && <Step2Weekly formData={formData} setFormData={setFormData} />}
         {currentStep === 3 && <Step3Recovery formData={formData} setFormData={setFormData} />}
+        {currentStep === 4 && (
+          <Step4Goals
+            goals={goals}
+            goalUpdates={goalUpdates}
+            setGoalUpdates={setGoalUpdates}
+          />
+        )}
       </ScrollView>
 
       {/* Footer with Points Counter */}
@@ -162,15 +222,25 @@ export default function CheckinScreen() {
               <Text className="text-white text-center font-bold">Back</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={handleNext} className="flex-1 bg-primary py-4 rounded-xl">
+          <TouchableOpacity
+            onPress={handleNext}
+            disabled={submitting}
+            className={`flex-1 bg-primary py-4 rounded-xl ${submitting ? 'opacity-60' : ''}`}
+          >
             <View className="flex-row items-center justify-center gap-3">
-              <Text className="text-background-dark font-bold text-base">
-                {currentStep === totalSteps ? 'Submit' : 'Continue'}
-              </Text>
-              {currentStep < totalSteps && <ArrowRight size={20} color="#102216" strokeWidth={2} />}
-              <View className="bg-background-dark/20 px-3 py-1 rounded-full">
-                <Text className="text-background-dark font-bold text-sm">{currentPoints} pts</Text>
-              </View>
+              {submitting ? (
+                <ActivityIndicator color="#102216" />
+              ) : (
+                <>
+                  <Text className="text-background-dark font-bold text-base">
+                    {currentStep === totalSteps ? 'Submit' : 'Continue'}
+                  </Text>
+                  {currentStep < totalSteps && <ArrowRight size={20} color="#102216" strokeWidth={2} />}
+                  <View className="bg-background-dark/20 px-3 py-1 rounded-full">
+                    <Text className="text-background-dark font-bold text-sm">{currentPoints} pts</Text>
+                  </View>
+                </>
+              )}
             </View>
           </TouchableOpacity>
         </View>
@@ -269,6 +339,110 @@ function Step3Recovery({ formData, setFormData }) {
           ))}
         </View>
       </View>
+    </View>
+  );
+}
+
+function goalTargetLabel(goal) {
+  if (goal.type === 'weight') {
+    return `${goal.direction === 'lose' ? 'Lose' : 'Gain'} ${goal.targetWeight} ${goal.unit}`;
+  }
+  if (goal.type === 'lift') {
+    return `${goal.liftName} — ${goal.targetWeight} ${goal.unit}`;
+  }
+  return goal.text;
+}
+
+function goalEmoji(type) {
+  if (type === 'weight') return '⚖';
+  if (type === 'lift') return '🏋';
+  return '🎯';
+}
+
+function Step4Goals({ goals, goalUpdates, setGoalUpdates }) {
+  const updateGoal = (goalId, field, value) => {
+    setGoalUpdates(prev => ({
+      ...prev,
+      [goalId]: { ...(prev[goalId] || { currentValue: '', progressNote: '' }), [field]: value },
+    }));
+  };
+
+  return (
+    <View className="gap-5">
+      <View>
+        <Text className="text-white text-xl font-bold">Your Goals</Text>
+        <Text className="text-slate-400 text-sm mt-1">Optional — update any goals you have progress on</Text>
+      </View>
+
+      {goals.map((goal) => {
+        const update = goalUpdates[goal.id] || { currentValue: '', progressNote: '' };
+        return (
+          <View key={goal.id} className="bg-surface-dark rounded-2xl p-5 border border-slate-700">
+            <View className="flex-row items-center gap-2 mb-1">
+              <Text className="text-xl">{goalEmoji(goal.type)}</Text>
+              <Text className="text-slate-400 text-xs uppercase tracking-wide flex-1" numberOfLines={1}>
+                {goalTargetLabel(goal)}
+              </Text>
+            </View>
+
+            {goal.type === 'weight' && (
+              <View className="mt-3">
+                <Text className="text-white text-sm font-medium mb-2">Current weight</Text>
+                <View className="flex-row items-center gap-2">
+                  <TextInput
+                    value={update.currentValue}
+                    onChangeText={v => updateGoal(goal.id, 'currentValue', v)}
+                    keyboardType="numeric"
+                    placeholder={goal.currentValue != null ? String(goal.currentValue) : `e.g. 190`}
+                    placeholderTextColor="#475569"
+                    className="flex-1 bg-slate-800 text-white px-4 py-3 rounded-xl border border-slate-600 text-base"
+                  />
+                  <Text className="text-slate-400 font-medium w-8">{goal.unit}</Text>
+                </View>
+                {goal.currentValue != null && (
+                  <Text className="text-slate-500 text-xs mt-1">Last: {goal.currentValue} {goal.unit}</Text>
+                )}
+              </View>
+            )}
+
+            {goal.type === 'lift' && (
+              <View className="mt-3">
+                <Text className="text-white text-sm font-medium mb-2">Current best</Text>
+                <View className="flex-row items-center gap-2">
+                  <TextInput
+                    value={update.currentValue}
+                    onChangeText={v => updateGoal(goal.id, 'currentValue', v)}
+                    keyboardType="numeric"
+                    placeholder={goal.currentValue != null ? String(goal.currentValue) : `e.g. 125`}
+                    placeholderTextColor="#475569"
+                    className="flex-1 bg-slate-800 text-white px-4 py-3 rounded-xl border border-slate-600 text-base"
+                  />
+                  <Text className="text-slate-400 font-medium w-8">{goal.unit}</Text>
+                </View>
+                {goal.currentValue != null && (
+                  <Text className="text-slate-500 text-xs mt-1">Last: {goal.currentValue} {goal.unit}</Text>
+                )}
+              </View>
+            )}
+
+            {goal.type === 'other' && (
+              <View className="mt-3">
+                <Text className="text-white text-sm font-medium mb-2">Progress note</Text>
+                <TextInput
+                  value={update.progressNote}
+                  onChangeText={v => updateGoal(goal.id, 'progressNote', v)}
+                  placeholder={goal.progressNote || 'How is it going?'}
+                  placeholderTextColor="#475569"
+                  multiline
+                  numberOfLines={2}
+                  className="bg-slate-800 text-white px-4 py-3 rounded-xl border border-slate-600 text-base"
+                  style={{ minHeight: 64, textAlignVertical: 'top' }}
+                />
+              </View>
+            )}
+          </View>
+        );
+      })}
     </View>
   );
 }
