@@ -53,6 +53,7 @@ model Gym {
   challenges      Challenge[]
   invites         GymInvite[]
   recipes         Recipe[]
+  announcements   Announcement[]
   
   @@index([slug])
   @@index([isActive])
@@ -145,6 +146,7 @@ model User {
   recipes            Recipe[]            @relation("RecipeAuthor")
   recipeLikes        RecipeLike[]
   goals              UserGoal[]
+  announcements      Announcement[]      @relation("AnnouncementAuthor")
 
   @@index([email])
 }
@@ -517,6 +519,24 @@ model RecipeLike {
 
   @@unique([recipeId, userId])
   @@index([userId])
+}
+
+// ===== ANNOUNCEMENTS =====
+
+model Announcement {
+  id        String   @id @default(cuid())
+  gymId     String
+  authorId  String
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  gym    Gym  @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  author User @relation("AnnouncementAuthor", fields: [authorId], references: [id])
+
+  @@index([gymId])
+  @@index([createdAt])
 }
 
 // ===== CHECK-IN WINDOW SCHEDULER =====

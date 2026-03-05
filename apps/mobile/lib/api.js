@@ -121,6 +121,12 @@ export const reportAPI = {
     api.get(`/reports/gym/${gymId}?challengeId=${challengeId}`),
 };
 
+// Announcement endpoints
+export const announcementAPI = {
+  list: (gymId) => api.get(`/announcements?gymId=${gymId}`),
+  create: (data) => api.post('/announcements', data),
+};
+
 // Goal endpoints
 export const goalAPI = {
   list: () => api.get('/goals'),

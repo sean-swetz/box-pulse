@@ -22,6 +22,7 @@ import adminRoutes from './routes/admin.js';
 import recipeRoutes from './routes/recipes.js';
 import goalRoutes from './routes/goals.js';
 import reportRoutes from './routes/reports.js';
+import announcementRoutes from './routes/announcements.js';
 
 // Import socket handlers
 import { setupSocketHandlers } from './socket/index.js';
@@ -92,6 +93,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/announcements', announcementRoutes);
 
 // 404 handler
 app.use((req, res) => {

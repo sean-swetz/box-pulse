@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
-import { CheckCircle, Trophy, MessageCircle, BookOpen, Heart, ChevronRight, Settings, Users } from 'lucide-react-native';
+import { CheckCircle, Trophy, MessageCircle, BookOpen, Heart, ChevronRight, Settings, Users, Bell } from 'lucide-react-native';
 import { useAuthStore } from '../../store/authStore';
-import { recipeAPI, userAPI } from '../../lib/api';
+import { recipeAPI, userAPI, announcementAPI } from '../../lib/api';
 
 export default function DashboardScreen() {
   const { user, selectedGym } = useAuthStore();
@@ -11,6 +12,8 @@ export default function DashboardScreen() {
   const [recentRecipes, setRecentRecipes] = useState([]);
   const [recipesLoading, setRecipesLoading] = useState(true);
   const [stats, setStats] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
+  const [hasUnread, setHasUnread] = useState(false);
 
   useEffect(() => {
     if (selectedGym?.id) {
@@ -20,7 +23,10 @@ export default function DashboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (selectedGym?.id) loadStats();
+      if (selectedGym?.id) {
+        loadStats();
+        loadAnnouncements();
+      }
     }, [selectedGym?.id])
   );
 
@@ -30,6 +36,23 @@ export default function DashboardScreen() {
       setStats(res.data);
     } catch (e) {
       console.error('Failed to load stats:', e);
+    }
+  };
+
+  const loadAnnouncements = async () => {
+    try {
+      const res = await announcementAPI.list(selectedGym.id);
+      const data = res.data;
+      setAnnouncements(data);
+      if (data.length > 0) {
+        const lastViewed = await AsyncStorage.getItem(`lastViewedAnnouncements_${selectedGym.id}`);
+        const lastViewedTime = lastViewed ? parseInt(lastViewed) : 0;
+        setHasUnread(new Date(data[0].createdAt).getTime() > lastViewedTime);
+      } else {
+        setHasUnread(false);
+      }
+    } catch (e) {
+      console.error('Failed to load announcements:', e);
     }
   };
 
@@ -48,8 +71,21 @@ export default function DashboardScreen() {
     <ScrollView className="flex-1 bg-background-dark">
       {/* Header */}
       <View className="bg-surface-dark px-6 pt-16 pb-6 border-b border-slate-700">
-        <Text className="text-white text-3xl font-bold">Dashboard</Text>
-        <Text className="text-slate-400 mt-1">{selectedGym?.name ?? 'Welcome back'}</Text>
+        <View className="flex-row items-center justify-between">
+          <View>
+            <Text className="text-white text-3xl font-bold">Dashboard</Text>
+            <Text className="text-slate-400 mt-1">{selectedGym?.name ?? 'Welcome back'}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => router.push('/(app)/announcements')}
+            className="p-2 relative"
+          >
+            <Bell size={26} color="#ffffff" strokeWidth={2} />
+            {hasUnread && (
+              <View className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full" />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Quick Actions */}
@@ -126,6 +162,42 @@ export default function DashboardScreen() {
           )}
         </View>
       </View>
+
+      {/* Latest Announcement */}
+      {announcements.length > 0 && (
+        <View className="px-6 pt-2 pb-2">
+          <View className="flex-row items-center justify-between mb-3">
+            <View className="flex-row items-center gap-2">
+              <Bell size={18} color="#0df259" strokeWidth={2} />
+              <Text className="text-white text-xl font-bold">Announcements</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push('/(app)/announcements')}
+              className="flex-row items-center gap-1"
+            >
+              <Text className="text-primary text-sm font-semibold">See All</Text>
+              <ChevronRight size={16} color="#0df259" strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            onPress={() => router.push('/(app)/announcements')}
+            className="bg-surface-dark rounded-2xl p-5 border border-slate-700"
+          >
+            <Text className="text-white font-bold text-base mb-1">{announcements[0].title}</Text>
+            <Text className="text-slate-400 text-sm" numberOfLines={2}>{announcements[0].body}</Text>
+            <View className="flex-row items-center gap-2 mt-3">
+              <View className="w-5 h-5 rounded-full bg-primary/20 items-center justify-center">
+                <Text className="text-primary text-xs font-bold">
+                  {announcements[0].author?.name?.[0]?.toUpperCase()}
+                </Text>
+              </View>
+              <Text className="text-slate-500 text-xs">
+                {announcements[0].author?.name} · {timeAgo(announcements[0].createdAt)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Stats Grid */}
       <View className="px-6 pb-6">
@@ -213,4 +285,15 @@ export default function DashboardScreen() {
       </View>
     </ScrollView>
   );
+}
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return mins <= 1 ? 'Just now' : `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString();
 }
