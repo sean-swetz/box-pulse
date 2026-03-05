@@ -109,7 +109,7 @@ export default function TeamsAdmin() {
         ) : (
           <View className="gap-3">
             {teams.map((team) => (
-              <TeamCard key={team.id} team={team} />
+              <TeamCard key={team.id} team={team} onPress={() => router.push(`/admin/team/${team.id}`)} />
             ))}
           </View>
         )}
@@ -206,11 +206,11 @@ export default function TeamsAdmin() {
   );
 }
 
-function TeamCard({ team }) {
+function TeamCard({ team, onPress }) {
   const memberCount = team.members?.length ?? 0;
 
   return (
-    <View className="bg-surface-dark rounded-xl border border-slate-700 overflow-hidden">
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} className="bg-surface-dark rounded-xl border border-slate-700 overflow-hidden">
       {/* Color accent stripe */}
       <View
         className="absolute left-0 top-0 bottom-0 w-1"
@@ -258,6 +258,6 @@ function TeamCard({ team }) {
           </View>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }

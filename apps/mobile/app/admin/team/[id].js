@@ -4,30 +4,32 @@ import {
   ActivityIndicator, Alert, Modal, TextInput,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, MessageCircle, CheckCircle, UserPlus, Trash2, Search } from 'lucide-react-native';
-import { teamAPI } from '../../../lib/api';
+import { ArrowLeft, UserPlus, Trash2, Search } from 'lucide-react-native';
+import { useAuthStore } from '../../../store/authStore';
+import { teamAPI, adminAPI } from '../../../lib/api';
 
-export default function TeamDetailScreen() {
+export default function AdminTeamDetail() {
   const { id } = useLocalSearchParams();
+  const { selectedGym } = useAuthStore();
   const [team, setTeam] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [otherTeamMembers, setOtherTeamMembers] = useState([]);
-  const [addLoading, setAddLoading] = useState(false);
+  const [allMembers, setAllMembers] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [removing, setRemoving] = useState(null);
   const [adding, setAdding] = useState(null);
 
   useEffect(() => {
-    fetchTeamDetails();
+    fetchTeam();
   }, [id]);
 
-  const fetchTeamDetails = async () => {
+  const fetchTeam = async () => {
     try {
-      const response = await teamAPI.getById(id);
-      setTeam(response.data);
-    } catch (error) {
-      console.error('Failed to fetch team:', error);
+      const res = await teamAPI.getById(id);
+      setTeam(res.data);
+    } catch (e) {
+      console.error('Fetch team error:', e);
     } finally {
       setLoading(false);
     }
@@ -36,26 +38,14 @@ export default function TeamDetailScreen() {
   const openAddModal = async () => {
     setShowAddModal(true);
     setSearch('');
-    setAddLoading(true);
+    setMembersLoading(true);
     try {
-      const res = await teamAPI.getByGym(team.gymId);
-      const allTeams = res.data;
-      // Collect members from other teams
-      const currentMemberIds = new Set(team.members?.map((m) => m.userId) ?? []);
-      const available = [];
-      for (const t of allTeams) {
-        if (t.id === id) continue;
-        for (const m of t.members ?? []) {
-          if (!currentMemberIds.has(m.userId)) {
-            available.push({ ...m, teamName: t.name });
-          }
-        }
-      }
-      setOtherTeamMembers(available);
+      const res = await adminAPI.getMembers(selectedGym.id);
+      setAllMembers(res.data);
     } catch (e) {
-      console.error('Fetch teams error:', e);
+      console.error('Fetch members error:', e);
     } finally {
-      setAddLoading(false);
+      setMembersLoading(false);
     }
   };
 
@@ -117,10 +107,12 @@ export default function TeamDetailScreen() {
     );
   }
 
+  const currentMemberIds = new Set(team.members?.map((m) => m.userId) ?? []);
   const sortedMembers = [...(team.members || [])].sort((a, b) => b.points - a.points);
-
-  const filteredAvailable = otherTeamMembers.filter((m) =>
-    m.user?.name?.toLowerCase().includes(search.toLowerCase())
+  const availableMembers = allMembers.filter(
+    (m) =>
+      !currentMemberIds.has(m.id) &&
+      m.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -131,64 +123,34 @@ export default function TeamDetailScreen() {
           <ArrowLeft size={20} color="#ffffff" strokeWidth={2} />
           <Text className="text-white font-bold ml-2">Back</Text>
         </TouchableOpacity>
-
-        <Text className="text-white text-3xl font-bold">{team.name}</Text>
-        <Text className="text-white/80 mt-1">Coach Dashboard</Text>
-
-        {/* Quick Stats */}
-        <View className="flex-row mt-6 gap-3">
-          <View className="flex-1 bg-white/20 rounded-xl p-4">
-            <Text className="text-white/80 text-xs uppercase">Total Points</Text>
-            <Text className="text-white text-3xl font-bold mt-1">{team.totalPoints ?? 0}</Text>
+        <View className="flex-row items-center justify-between">
+          <View>
+            <Text className="text-white text-3xl font-bold">{team.name}</Text>
+            <Text className="text-white/80 mt-1">{team.members?.length ?? 0} members</Text>
           </View>
-          <View className="flex-1 bg-white/20 rounded-xl p-4">
-            <Text className="text-white/80 text-xs uppercase">Members</Text>
-            <Text className="text-white text-3xl font-bold mt-1">{team.members?.length || 0}</Text>
-          </View>
+          <TouchableOpacity
+            onPress={openAddModal}
+            className="bg-white/20 px-4 py-3 rounded-xl flex-row items-center gap-2"
+          >
+            <UserPlus size={18} color="#ffffff" strokeWidth={2} />
+            <Text className="text-white font-bold">Add Member</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView className="flex-1 px-6 py-4">
-        {/* Action Buttons */}
-        <View className="flex-row gap-3 mb-6">
-          <TouchableOpacity
-            onPress={() => router.push(`/chat/team/${team.id}`)}
-            className="flex-1 bg-primary py-4 rounded-xl flex-row items-center justify-center gap-2"
-          >
-            <MessageCircle size={20} color="#102216" strokeWidth={2} />
-            <Text className="text-background-dark font-bold text-base">Message Team</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => router.push(`/coach/checkins/${team.id}`)}
-            className="flex-1 bg-slate-700 py-4 rounded-xl flex-row items-center justify-center gap-2"
-          >
-            <CheckCircle size={20} color="#ffffff" strokeWidth={2} />
-            <Text className="text-white font-bold text-base">Check-Ins</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Team Roster */}
-        <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-white text-xl font-bold">Team Roster</Text>
-          <TouchableOpacity
-            onPress={openAddModal}
-            className="flex-row items-center gap-2 bg-slate-700 px-4 py-2 rounded-xl"
-          >
-            <UserPlus size={16} color="#0df259" strokeWidth={2} />
-            <Text className="text-primary font-semibold text-sm">Add Member</Text>
-          </TouchableOpacity>
-        </View>
-
         {sortedMembers.length === 0 ? (
-          <View className="bg-surface-dark rounded-xl p-6 items-center">
-            <Text className="text-slate-400">No team members yet</Text>
+          <View className="items-center py-16">
+            <Text className="text-slate-500 mb-4">No members on this team yet</Text>
+            <TouchableOpacity onPress={openAddModal} className="bg-primary px-6 py-3 rounded-xl">
+              <Text className="text-background-dark font-bold">Add First Member</Text>
+            </TouchableOpacity>
           </View>
         ) : (
-          <View className="gap-2">
+          <View className="gap-3">
             {sortedMembers.map((member, index) => (
               <MemberRow
-                key={member.id}
+                key={member.userId}
                 member={member}
                 rank={index + 1}
                 onRemove={() => handleRemoveMember(member.userId, member.user?.name)}
@@ -221,46 +183,42 @@ export default function TeamDetailScreen() {
               />
             </View>
 
-            <Text className="text-slate-500 text-xs mb-3">
-              Members from other teams you can move to this team
-            </Text>
-
-            {addLoading ? (
+            {membersLoading ? (
               <View className="py-8 items-center">
                 <ActivityIndicator color="#0df259" />
               </View>
-            ) : filteredAvailable.length === 0 ? (
+            ) : availableMembers.length === 0 ? (
               <View className="items-center py-8">
                 <Text className="text-slate-500">
-                  {search ? 'No matching members' : 'No members available to add'}
+                  {search ? 'No matching members' : 'All gym members are already on this team'}
                 </Text>
               </View>
             ) : (
               <ScrollView>
                 <View className="gap-2">
-                  {filteredAvailable.map((member) => (
+                  {availableMembers.map((member) => (
                     <TouchableOpacity
-                      key={member.userId}
-                      onPress={() => handleAddMember(member.userId)}
+                      key={member.id}
+                      onPress={() => handleAddMember(member.id)}
                       disabled={!!adding}
                       className="flex-row items-center gap-4 bg-slate-800 rounded-xl px-4 py-3"
                     >
-                      <View className="w-10 h-10 rounded-full overflow-hidden bg-slate-700">
-                        {member.user?.photoUrl ? (
-                          <Image source={{ uri: member.user.photoUrl }} className="w-full h-full" />
-                        ) : (
-                          <View className="w-full h-full items-center justify-center bg-primary/20">
-                            <Text className="text-primary font-bold">
-                              {member.user?.name?.[0] ?? '?'}
-                            </Text>
-                          </View>
-                        )}
+                      <View className="w-10 h-10 rounded-full bg-primary/20 items-center justify-center">
+                        <Text className="text-primary font-bold text-base">
+                          {member.name[0].toUpperCase()}
+                        </Text>
                       </View>
                       <View className="flex-1">
-                        <Text className="text-white font-semibold">{member.user?.name}</Text>
-                        <Text className="text-slate-500 text-xs">From: {member.teamName}</Text>
+                        <Text className="text-white font-semibold">{member.name}</Text>
+                        {member.teams?.length > 0 ? (
+                          <Text className="text-slate-500 text-xs">
+                            Currently on: {member.teams[0].name}
+                          </Text>
+                        ) : (
+                          <Text className="text-slate-600 text-xs">No team</Text>
+                        )}
                       </View>
-                      {adding === member.userId ? (
+                      {adding === member.id ? (
                         <ActivityIndicator size="small" color="#0df259" />
                       ) : (
                         <UserPlus size={18} color="#0df259" strokeWidth={2} />

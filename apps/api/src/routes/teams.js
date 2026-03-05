@@ -119,6 +119,74 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/teams/:teamId/members — add a member
+router.post('/:teamId/members', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+    const team = await prisma.team.findUnique({ where: { id: req.params.teamId } });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+
+    const [membership, coach] = await Promise.all([
+      prisma.gymMembership.findUnique({
+        where: { userId_gymId: { userId: req.user.id, gymId: team.gymId } },
+      }),
+      prisma.gymCoach.findFirst({ where: { userId: req.user.id, gymId: team.gymId } }),
+    ]);
+    const isAdmin = membership?.role === 'owner' || membership?.role === 'admin';
+    if (!isAdmin && !coach) return res.status(403).json({ error: 'Coach or admin access required' });
+
+    // Verify target user is a gym member
+    const targetMembership = await prisma.gymMembership.findUnique({
+      where: { userId_gymId: { userId, gymId: team.gymId } },
+    });
+    if (!targetMembership) return res.status(400).json({ error: 'User is not a member of this gym' });
+
+    // Remove from any existing team in this gym first
+    const gymTeams = await prisma.team.findMany({ where: { gymId: team.gymId }, select: { id: true } });
+    await prisma.teamMembership.deleteMany({
+      where: { userId, teamId: { in: gymTeams.map(t => t.id) } },
+    });
+
+    const tm = await prisma.teamMembership.create({
+      data: { userId, teamId: req.params.teamId },
+      include: { user: { select: { id: true, name: true, photoUrl: true, email: true } } },
+    });
+
+    res.status(201).json(tm);
+  } catch (error) {
+    console.error('Add team member error:', error);
+    res.status(500).json({ error: 'Failed to add member' });
+  }
+});
+
+// DELETE /api/teams/:teamId/members/:userId — remove a member
+router.delete('/:teamId/members/:userId', authenticateToken, async (req, res) => {
+  try {
+    const team = await prisma.team.findUnique({ where: { id: req.params.teamId } });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+
+    const [membership, coach] = await Promise.all([
+      prisma.gymMembership.findUnique({
+        where: { userId_gymId: { userId: req.user.id, gymId: team.gymId } },
+      }),
+      prisma.gymCoach.findFirst({ where: { userId: req.user.id, gymId: team.gymId } }),
+    ]);
+    const isAdmin = membership?.role === 'owner' || membership?.role === 'admin';
+    if (!isAdmin && !coach) return res.status(403).json({ error: 'Coach or admin access required' });
+
+    await prisma.teamMembership.deleteMany({
+      where: { userId: req.params.userId, teamId: req.params.teamId },
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Remove team member error:', error);
+    res.status(500).json({ error: 'Failed to remove member' });
+  }
+});
+
 // GET /api/teams/:teamId/checkins - Team check-in status for current window
 router.get('/:teamId/checkins', authenticateToken, async (req, res) => {
   try {

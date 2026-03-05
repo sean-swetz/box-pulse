@@ -75,6 +75,8 @@ export const teamAPI = {
   getByGym: (gymId) => api.get(`/teams?gymId=${gymId}`),
   getById: (id) => api.get(`/teams/${id}`),
   getCheckins: (teamId) => api.get(`/teams/${teamId}/checkins`),
+  addMember: (teamId, userId) => api.post(`/teams/${teamId}/members`, { userId }),
+  removeMember: (teamId, userId) => api.delete(`/teams/${teamId}/members/${userId}`),
 };
 
 // Admin endpoints
