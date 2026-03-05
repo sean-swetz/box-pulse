@@ -92,6 +92,22 @@ export default function AnnouncementCompose() {
         />
       </View>
 
+      {/* Formatting toolbar — sits above the editor */}
+      <RichToolbar
+        editor={richText}
+        actions={TOOLBAR_ACTIONS}
+        style={{
+          backgroundColor: '#1a2e1f',
+          borderBottomWidth: 1,
+          borderBottomColor: '#334155',
+          height: 50,
+        }}
+        iconTint="#94a3b8"
+        selectedIconTint="#0df259"
+        selectedButtonStyle={{ backgroundColor: '#0df25920', borderRadius: 6 }}
+        iconSize={20}
+      />
+
       {/* Rich Editor */}
       <ScrollView
         className="flex-1"
@@ -117,22 +133,6 @@ export default function AnnouncementCompose() {
           useContainer={false}
         />
       </ScrollView>
-
-      {/* Formatting toolbar — sits above keyboard */}
-      <RichToolbar
-        editor={richText}
-        actions={TOOLBAR_ACTIONS}
-        style={{
-          backgroundColor: '#1a2e1f',
-          borderTopWidth: 1,
-          borderTopColor: '#334155',
-          height: 50,
-        }}
-        iconTint="#94a3b8"
-        selectedIconTint="#0df259"
-        selectedButtonStyle={{ backgroundColor: '#0df25920', borderRadius: 6 }}
-        iconSize={20}
-      />
     </KeyboardAvoidingView>
   );
 }
