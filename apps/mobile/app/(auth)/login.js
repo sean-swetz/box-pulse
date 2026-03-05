@@ -42,7 +42,7 @@ export default function LoginScreen() {
             <Dumbbell size={48} color="#0df259" strokeWidth={2} />
           </View>
           <Text className="font-display text-4xl font-extrabold text-white">
-            RESET <Text className="text-primary">2026</Text>
+            Box<Text className="text-primary">Pulse</Text>
           </Text>
           <Text className="text-slate-400 font-medium uppercase tracking-widest text-xs mt-2">
             CrossFit Challenge Tracker

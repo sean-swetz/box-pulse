@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx expo install --check 2>&1 | head -60)",
+      "Bash(which npm && npm --version && node --version)",
+      "Bash(npm install 2>&1)",
+      "Bash(npx expo install --check 2>&1)",
+      "Bash(npx expo start 2>&1)"
+    ]
+  }
+}

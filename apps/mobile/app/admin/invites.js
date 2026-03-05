@@ -48,7 +48,7 @@ export default function InvitesAdmin() {
   const handleShare = async (code) => {
     try {
       await Share.share({
-        message: `Join ${selectedGym.name} on Reset 2026!\n\nUse invite code: ${code}`,
+        message: `Join ${selectedGym.name} on BoxPulse!\n\nUse invite code: ${code}`,
       });
     } catch (e) {
       console.error('Share error:', e);

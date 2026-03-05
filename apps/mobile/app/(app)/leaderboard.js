@@ -3,66 +3,39 @@ import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator } fr
 import { router } from 'expo-router';
 import { Trophy, Users, User, ChevronDown, ChevronRight } from 'lucide-react-native';
 import { useAuthStore } from '../../store/authStore';
+import { gymAPI, leaderboardAPI } from '../../lib/api';
 
 export default function LeaderboardScreen() {
   const [view, setView] = useState('individual');
   const [expandedTeams, setExpandedTeams] = useState([]);
-  const { user } = useAuthStore();
+  const [individualRankings, setIndividualRankings] = useState([]);
+  const [teamRankings, setTeamRankings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { user, selectedGym } = useAuthStore();
 
-  // Mock data
-  const individualRankings = [
-    { id: '1', name: 'Sarah Martinez', team: 'Red Team', teamColor: '#ef4444', points: 1450, rank: 1 },
-    { id: '2', name: 'Mike Thompson', team: 'Blue Team', teamColor: '#3b82f6', points: 1320, rank: 2 },
-    { id: '3', name: 'Alex Rivera', team: 'Green Team', teamColor: '#22c55e', points: 1280, rank: 3 },
-    { id: user?.id, name: user?.name || 'You', team: 'Red Team', teamColor: '#ef4444', points: 1240, rank: 4 },
-    { id: '5', name: 'Jordan Lee', team: 'Blue Team', teamColor: '#3b82f6', points: 1190, rank: 5 },
-    { id: '6', name: 'Taylor Kim', team: 'Green Team', teamColor: '#22c55e', points: 1150, rank: 6 },
-  ];
+  useEffect(() => {
+    loadLeaderboard();
+  }, []);
 
-  const teamRankings = [
-    { 
-      id: '1', 
-      name: 'Red Team', 
-      color: '#ef4444', 
-      points: 8450, 
-      members: 12, 
-      avgPoints: 704, 
-      rank: 1,
-      memberList: [
-        { id: '1', name: 'Sarah Martinez', points: 1450 },
-        { id: user?.id, name: user?.name || 'You', points: 1240 },
-        { id: '7', name: 'Chris Wilson', points: 1180 },
-      ]
-    },
-    { 
-      id: '2', 
-      name: 'Blue Team', 
-      color: '#3b82f6', 
-      points: 7890, 
-      members: 10, 
-      avgPoints: 789, 
-      rank: 2,
-      memberList: [
-        { id: '2', name: 'Mike Thompson', points: 1320 },
-        { id: '5', name: 'Jordan Lee', points: 1190 },
-        { id: '8', name: 'Sam Davis', points: 1095 },
-      ]
-    },
-    { 
-      id: '3', 
-      name: 'Green Team', 
-      color: '#22c55e', 
-      points: 7320, 
-      members: 11, 
-      avgPoints: 665, 
-      rank: 3,
-      memberList: [
-        { id: '3', name: 'Alex Rivera', points: 1280 },
-        { id: '6', name: 'Taylor Kim', points: 1150 },
-        { id: '9', name: 'Morgan Chen', points: 1045 },
-      ]
-    },
-  ];
+  const loadLeaderboard = async () => {
+    if (!selectedGym?.id) return;
+    try {
+      const challengeRes = await gymAPI.getChallenges(selectedGym.id);
+      const active = challengeRes.data.find(c => c.isActive);
+      if (!active) { setLoading(false); return; }
+
+      const [indRes, teamRes] = await Promise.all([
+        leaderboardAPI.individual(active.id, selectedGym.id),
+        leaderboardAPI.teams(active.id, selectedGym.id),
+      ]);
+      setIndividualRankings(indRes.data);
+      setTeamRankings(teamRes.data);
+    } catch (e) {
+      console.error('Failed to load leaderboard:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleTeam = (teamId) => {
     setExpandedTeams(prev => 
@@ -132,12 +105,24 @@ export default function LeaderboardScreen() {
       </View>
 
       <ScrollView className="flex-1">
-        {view === 'individual' ? (
+        {loading ? (
+          <View className="items-center justify-center py-20">
+            <ActivityIndicator size="large" color="#0df259" />
+          </View>
+        ) : individualRankings.length === 0 && teamRankings.length === 0 ? (
+          <View className="items-center justify-center py-20 px-8">
+            <Trophy size={56} color="#475569" strokeWidth={1.5} />
+            <Text className="text-white text-xl font-bold mt-4">No Rankings Yet</Text>
+            <Text className="text-slate-400 text-sm mt-2 text-center">
+              Complete your weekly check-in to appear on the leaderboard
+            </Text>
+          </View>
+        ) : view === 'individual' ? (
           <IndividualView rankings={individualRankings} currentUserId={user?.id} getRankColor={getRankColor} />
         ) : (
-          <TeamView 
-            rankings={teamRankings} 
-            getRankColor={getRankColor} 
+          <TeamView
+            rankings={teamRankings}
+            getRankColor={getRankColor}
             expandedTeams={expandedTeams}
             toggleTeam={toggleTeam}
             currentUserId={user?.id}

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  ActivityIndicator, Alert, Modal,
+  ActivityIndicator, Alert, Modal, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowLeft, Plus, Trophy, X, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ArrowLeft, Plus, Trophy, X, ChevronDown, ChevronUp, Calendar } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuthStore } from '../../store/authStore';
 import { gymAPI, challengeAPI } from '../../lib/api';
 
@@ -20,12 +21,20 @@ export default function ChallengesAdmin() {
   const [activeChallengeId, setActiveChallengeId] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const [createForm, setCreateForm] = useState({
-    name: '', description: '', startDate: '', endDate: '',
+  const [createForm, setCreateForm] = useState({ name: '', description: '' });
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d;
   });
+  const [showPicker, setShowPicker] = useState(null); // 'start' | 'end' | null
   const [criteriaForm, setCriteriaForm] = useState({
     name: '', type: 'daily', points: '3', maxCount: '',
   });
+
+  const fmtDate = (d) =>
+    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   useEffect(() => { fetchChallenges(); }, []);
 
@@ -41,21 +50,31 @@ export default function ChallengesAdmin() {
   };
 
   const handleCreateChallenge = async () => {
-    if (!createForm.name || !createForm.startDate || !createForm.endDate) {
-      Alert.alert('Required', 'Name, start date, and end date are required.');
+    if (!createForm.name) {
+      Alert.alert('Required', 'Challenge name is required.');
+      return;
+    }
+    if (endDate <= startDate) {
+      Alert.alert('Invalid Dates', 'End date must be after start date.');
       return;
     }
     setSaving(true);
     try {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
       await challengeAPI.create({
         gymId: selectedGym.id,
         name: createForm.name,
         description: createForm.description || undefined,
-        startDate: new Date(createForm.startDate).toISOString(),
-        endDate: new Date(createForm.endDate + 'T23:59:59').toISOString(),
+        startDate: startDate.toISOString(),
+        endDate: end.toISOString(),
       });
       setShowCreateModal(false);
-      setCreateForm({ name: '', description: '', startDate: '', endDate: '' });
+      setCreateForm({ name: '', description: '' });
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      setStartDate(new Date());
+      setEndDate(d);
       fetchChallenges();
     } catch (e) {
       Alert.alert('Error', e.response?.data?.error || 'Failed to create challenge');
@@ -187,7 +206,7 @@ export default function ChallengesAdmin() {
             <TextInput
               value={createForm.name}
               onChangeText={(v) => setCreateForm((f) => ({ ...f, name: v }))}
-              placeholder="e.g. Reset 2026"
+              placeholder="e.g. BoxPulse Spring Challenge"
               placeholderTextColor="#64748b"
               className="bg-slate-800 text-white px-4 py-3 rounded-xl mb-4"
             />
@@ -205,23 +224,23 @@ export default function ChallengesAdmin() {
             <View className="flex-row gap-4 mb-6">
               <View className="flex-1">
                 <Text className="text-slate-400 text-sm mb-1">Start Date *</Text>
-                <TextInput
-                  value={createForm.startDate}
-                  onChangeText={(v) => setCreateForm((f) => ({ ...f, startDate: v }))}
-                  placeholder="2026-01-01"
-                  placeholderTextColor="#64748b"
-                  className="bg-slate-800 text-white px-4 py-3 rounded-xl"
-                />
+                <TouchableOpacity
+                  onPress={() => setShowPicker('start')}
+                  className="bg-slate-800 border border-slate-700 px-4 py-3 rounded-xl flex-row items-center justify-between"
+                >
+                  <Text className="text-white">{fmtDate(startDate)}</Text>
+                  <Calendar size={16} color="#64748b" strokeWidth={2} />
+                </TouchableOpacity>
               </View>
               <View className="flex-1">
                 <Text className="text-slate-400 text-sm mb-1">End Date *</Text>
-                <TextInput
-                  value={createForm.endDate}
-                  onChangeText={(v) => setCreateForm((f) => ({ ...f, endDate: v }))}
-                  placeholder="2026-03-31"
-                  placeholderTextColor="#64748b"
-                  className="bg-slate-800 text-white px-4 py-3 rounded-xl"
-                />
+                <TouchableOpacity
+                  onPress={() => setShowPicker('end')}
+                  className="bg-slate-800 border border-slate-700 px-4 py-3 rounded-xl flex-row items-center justify-between"
+                >
+                  <Text className="text-white">{fmtDate(endDate)}</Text>
+                  <Calendar size={16} color="#64748b" strokeWidth={2} />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -239,6 +258,53 @@ export default function ChallengesAdmin() {
           </View>
         </View>
       </Modal>
+
+      {/* Date Picker Modal (iOS) / inline Android */}
+      {showPicker !== null && Platform.OS === 'ios' && (
+        <Modal transparent animationType="fade">
+          <TouchableOpacity
+            className="flex-1 bg-black/60"
+            activeOpacity={1}
+            onPress={() => setShowPicker(null)}
+          />
+          <View className="bg-surface-dark border-t border-slate-700">
+            <View className="flex-row items-center justify-between px-6 pt-4 pb-2">
+              <Text className="text-white font-bold">
+                {showPicker === 'start' ? 'Start Date' : 'End Date'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowPicker(null)}>
+                <Text className="text-primary font-bold text-base">Done</Text>
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              value={showPicker === 'start' ? startDate : endDate}
+              mode="date"
+              display="spinner"
+              themeVariant="dark"
+              style={{ height: 180 }}
+              onChange={(_, date) => {
+                if (!date) return;
+                if (showPicker === 'start') setStartDate(date);
+                else setEndDate(date);
+              }}
+            />
+            <View className="h-6" />
+          </View>
+        </Modal>
+      )}
+      {showPicker !== null && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={showPicker === 'start' ? startDate : endDate}
+          mode="date"
+          display="default"
+          onChange={(_, date) => {
+            setShowPicker(null);
+            if (!date) return;
+            if (showPicker === 'start') setStartDate(date);
+            else setEndDate(date);
+          }}
+        />
+      )}
 
       {/* Add Criteria Modal */}
       <Modal visible={showCriteriaModal} animationType="slide" transparent>

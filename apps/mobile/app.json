@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "RESET 2026",
-    "slug": "reset-2026",
+    "name": "BoxPulse",
+    "slug": "boxpulse",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "reset2026",
+    "scheme": "boxpulse",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -14,14 +14,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.prosperity.reset2026"
+      "bundleIdentifier": "com.boxpulse.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#102216"
       },
-      "package": "com.prosperity.reset2026"
+      "package": "com.boxpulse.app"
     },
     "web": {
       "bundler": "metro",
@@ -33,6 +33,7 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "newArchEnabled": true
   }
 }

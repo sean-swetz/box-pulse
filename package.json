@@ -1,8 +1,8 @@
 {
-  "name": "reset-2026",
+  "name": "boxpulse",
   "version": "1.0.0",
   "private": true,
-  "description": "RESET 2026 - CrossFit Prosperity Challenge Tracker",
+  "description": "BoxPulse - CrossFit Challenge Tracker",
   "workspaces": [
     "apps/*",
     "packages/*"

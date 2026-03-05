@@ -4,10 +4,10 @@ import { router } from 'expo-router';
 import { ArrowLeft, Camera, Save } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../store/authStore';
-import api from '../../lib/api';
+import { gymAPI } from '../../lib/api';
 
 export default function GymProfileEditor() {
-  const { selectedGym, token } = useAuthStore();
+  const { selectedGym } = useAuthStore();
   const [formData, setFormData] = useState({
     name: '',
     logoUrl: '',
@@ -29,9 +29,7 @@ export default function GymProfileEditor() {
 
   const loadGymData = async () => {
     try {
-      const response = await axios.get(`/api/gyms/${selectedGym.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await gymAPI.getById(selectedGym.id);
       setFormData({
         name: response.data.name || '',
         logoUrl: response.data.logoUrl || '',
@@ -73,9 +71,7 @@ export default function GymProfileEditor() {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await axios.put(`/api/gyms/${selectedGym.id}`, formData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await gymAPI.update(selectedGym.id, formData);
       Alert.alert('Success', 'Gym profile updated!');
       router.back();
     } catch (error) {

@@ -1,0 +1,10 @@
+  const loadMessages = async () => {
+    try {
+      const response = await api.get(`/conversations/${id}/messages`);
+      setMessages(response.data);
+      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: false }), 100);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      setMessages([]); // Just show empty, no mock data
+    }
+  };

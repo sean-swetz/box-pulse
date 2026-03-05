@@ -1,5 +1,5 @@
 {
-  "name": "@reset-2026/mobile",
+  "name": "@boxpulse/mobile",
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {

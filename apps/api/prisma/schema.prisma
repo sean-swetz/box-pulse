@@ -1,4 +1,4 @@
-// Prisma Schema for RESET 2026 - Multi-Tenant SaaS
+// Prisma Schema for BoxPulse - Multi-Tenant SaaS
 // This defines your database structure
 
 generator client {

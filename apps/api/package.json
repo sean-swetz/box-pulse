@@ -1,8 +1,8 @@
 {
-  "name": "@reset-2026/api",
+  "name": "@boxpulse/api",
   "version": "1.0.0",
   "private": true,
-  "description": "RESET 2026 API Server",
+  "description": "BoxPulse API Server",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
