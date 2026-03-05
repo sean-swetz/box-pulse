@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import RenderHtml from 'react-native-render-html';
 import { router } from 'expo-router';
 import { ArrowLeft, Bell, Megaphone } from 'lucide-react-native';
 import { useAuthStore } from '../../store/authStore';
@@ -82,7 +83,22 @@ export default function AnnouncementsScreen() {
   );
 }
 
+const HTML_STYLES = {
+  body: { color: '#cbd5e1', fontSize: 15, lineHeight: 24, margin: 0, padding: 0 },
+  p: { marginTop: 0, marginBottom: 8 },
+  strong: { color: '#f1f5f9' },
+  b: { color: '#f1f5f9' },
+  em: { color: '#cbd5e1' },
+  h1: { color: '#ffffff', fontSize: 20, fontWeight: '700', marginBottom: 6 },
+  h2: { color: '#ffffff', fontSize: 17, fontWeight: '700', marginBottom: 4 },
+  ul: { marginLeft: 4, marginBottom: 8 },
+  ol: { marginLeft: 4, marginBottom: 8 },
+  li: { color: '#cbd5e1', marginBottom: 4 },
+};
+
 function AnnouncementCard({ item }) {
+  const { width } = useWindowDimensions();
+
   const timeAgo = (dateStr) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
@@ -96,8 +112,14 @@ function AnnouncementCard({ item }) {
 
   return (
     <View className="bg-surface-dark rounded-2xl p-5 border border-slate-700">
-      <Text className="text-white font-bold text-lg mb-2">{item.title}</Text>
-      <Text className="text-slate-300 text-sm leading-relaxed">{item.body}</Text>
+      <Text className="text-white font-bold text-lg mb-3">{item.title}</Text>
+      <RenderHtml
+        contentWidth={width - 88}
+        source={{ html: item.body }}
+        tagsStyles={HTML_STYLES}
+        baseStyle={{ color: '#cbd5e1' }}
+        enableExperimentalMarginCollapsing
+      />
       <View className="flex-row items-center gap-2 mt-4 pt-4 border-t border-slate-700/60">
         <View className="w-6 h-6 rounded-full bg-primary/20 items-center justify-center">
           <Text className="text-primary text-xs font-bold">

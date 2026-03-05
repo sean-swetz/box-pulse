@@ -184,7 +184,9 @@ export default function DashboardScreen() {
             className="bg-surface-dark rounded-2xl p-5 border border-slate-700"
           >
             <Text className="text-white font-bold text-base mb-1">{announcements[0].title}</Text>
-            <Text className="text-slate-400 text-sm" numberOfLines={2}>{announcements[0].body}</Text>
+            <Text className="text-slate-400 text-sm" numberOfLines={2}>
+              {announcements[0].body?.replace(/<[^>]*>/g, '') ?? ''}
+            </Text>
             <View className="flex-row items-center gap-2 mt-3">
               <View className="w-5 h-5 rounded-full bg-primary/20 items-center justify-center">
                 <Text className="text-primary text-xs font-bold">
