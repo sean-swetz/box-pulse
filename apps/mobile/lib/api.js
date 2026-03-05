@@ -74,6 +74,7 @@ export const teamAPI = {
   create: (data) => api.post('/teams', data),
   getByGym: (gymId) => api.get(`/teams?gymId=${gymId}`),
   getById: (id) => api.get(`/teams/${id}`),
+  getCheckins: (teamId) => api.get(`/teams/${teamId}/checkins`),
 };
 
 // Admin endpoints

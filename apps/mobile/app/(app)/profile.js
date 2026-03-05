@@ -9,6 +9,7 @@ import {
   Dumbbell, Salad, Target, CheckSquare, Plus, Eye, EyeOff,
   ArrowLeft, Scale, Trash2,
 } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../store/authStore';
 import { userAPI, goalAPI } from '../../lib/api';
 
@@ -118,6 +119,29 @@ export default function ProfileScreen() {
     }
   };
 
+  const handlePickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please grant photo library access to change your profile photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      try {
+        const res = await userAPI.updateProfile({ photoUrl: uri });
+        await setAuth(res.data, useAuthStore.getState().token);
+      } catch (e) {
+        Alert.alert('Error', 'Failed to update profile photo');
+      }
+    }
+  };
+
   const handleLogout = () => {
     logout();
     router.replace('/(auth)/login');
@@ -138,7 +162,7 @@ export default function ProfileScreen() {
                 </View>
               )}
             </View>
-            <TouchableOpacity className="absolute bottom-0 right-0 w-9 h-9 bg-primary rounded-full items-center justify-center border-4 border-surface-dark">
+            <TouchableOpacity onPress={handlePickPhoto} className="absolute bottom-0 right-0 w-9 h-9 bg-primary rounded-full items-center justify-center border-4 border-surface-dark">
               <Camera size={16} color="#102216" strokeWidth={2} />
             </TouchableOpacity>
           </View>

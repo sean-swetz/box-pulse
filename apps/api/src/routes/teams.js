@@ -119,4 +119,79 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/teams/:teamId/checkins - Team check-in status for current window
+router.get('/:teamId/checkins', authenticateToken, async (req, res) => {
+  try {
+    const team = await prisma.team.findUnique({
+      where: { id: req.params.teamId },
+      include: {
+        members: {
+          include: {
+            user: { select: { id: true, name: true, photoUrl: true } },
+          },
+          orderBy: { points: 'desc' },
+        },
+      },
+    });
+
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+
+    // Auth: gym member or coach at this gym
+    const [membership, coach] = await Promise.all([
+      prisma.gymMembership.findUnique({
+        where: { userId_gymId: { userId: req.user.id, gymId: team.gymId } },
+      }),
+      prisma.gymCoach.findFirst({ where: { userId: req.user.id, gymId: team.gymId } }),
+    ]);
+    if (!membership && !coach) return res.status(403).json({ error: 'Not authorized' });
+
+    // Find active challenge for this gym
+    const challenge = await prisma.challenge.findFirst({
+      where: { gymId: team.gymId, isActive: true },
+    });
+
+    // Find window open time — fall back to 7 days ago
+    let windowOpenedAt = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    if (challenge) {
+      const windowState = await prisma.checkinWindowState.findUnique({
+        where: { challengeId: challenge.id },
+      });
+      if (windowState?.lastOpened) windowOpenedAt = windowState.lastOpened;
+    }
+
+    // For each member, find their most recent check-in since the window opened
+    const memberStatuses = await Promise.all(
+      team.members.map(async (m) => {
+        const checkin = challenge
+          ? await prisma.checkin.findFirst({
+              where: {
+                userId: m.userId,
+                challengeId: challenge.id,
+                createdAt: { gte: windowOpenedAt },
+              },
+              orderBy: { createdAt: 'desc' },
+            })
+          : null;
+
+        return {
+          user: m.user,
+          points: m.points,
+          completed: !!checkin,
+          submittedAt: checkin?.createdAt ?? null,
+          weeklyScore: checkin?.weeklyScore ?? null,
+        };
+      })
+    );
+
+    res.json({
+      team: { id: team.id, name: team.name, color: team.color },
+      windowOpenedAt,
+      members: memberStatuses,
+    });
+  } catch (error) {
+    console.error('Team checkins error:', error);
+    res.status(500).json({ error: 'Failed to fetch team check-ins' });
+  }
+});
+
 export default router;

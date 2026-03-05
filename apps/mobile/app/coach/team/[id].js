@@ -2,14 +2,13 @@ import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, MessageCircle, CheckCircle } from 'lucide-react-native';
-import axios from 'axios';
 import { useAuthStore } from '../../../store/authStore';
+import { teamAPI } from '../../../lib/api';
 
 export default function TeamDetailScreen() {
   const { id } = useLocalSearchParams();
   const [team, setTeam] = useState(null);
   const [loading, setLoading] = useState(true);
-  const token = useAuthStore((state) => state.token);
 
   useEffect(() => {
     fetchTeamDetails();
@@ -17,9 +16,7 @@ export default function TeamDetailScreen() {
 
   const fetchTeamDetails = async () => {
     try {
-      const response = await axios.get(`/api/teams/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await teamAPI.getById(id);
       setTeam(response.data);
     } catch (error) {
       console.error('Failed to fetch team:', error);
