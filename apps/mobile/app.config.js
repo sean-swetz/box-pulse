@@ -1,5 +1,6 @@
 export default {
   ...require('./app.json').expo,
+  owner: 'mrswetz',
   extra: {
     apiUrl: 'https://boxpulseapi-production.up.railway.app/api',
     eas: {
