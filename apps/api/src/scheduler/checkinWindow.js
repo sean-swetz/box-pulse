@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { prisma } from '../db/client.js';
+import { sendPushToGymMembers } from '../services/pushNotifications.js';
 
 const DAYS_MAP = {
   'sunday': 0,
@@ -33,8 +34,14 @@ export const setupCheckinWindowScheduler = (io) => {
       });
 
       for (const challenge of challenges) {
-        const schedule = challenge.checkinSchedule;
-        if (!schedule) continue;
+        if (!challenge.checkinAutoOpen) continue;
+
+        const {
+          checkinOpenDay, checkinOpenTime,
+          checkinCloseDay, checkinCloseTime,
+        } = challenge;
+
+        if (!checkinOpenDay || !checkinOpenTime || !checkinCloseDay || !checkinCloseTime) continue;
 
         const windowState = await prisma.checkinWindowState.findUnique({
           where: { challengeId: challenge.id }
@@ -42,18 +49,16 @@ export const setupCheckinWindowScheduler = (io) => {
 
         if (!windowState) continue;
 
-        const { openDay, openTime, closeDay, closeTime } = schedule;
-
         // Check if it's time to open
-        const shouldOpen = 
-          DAYS_MAP[openDay] === currentDay &&
-          currentTime === openTime &&
+        const shouldOpen =
+          DAYS_MAP[checkinOpenDay.toLowerCase()] === currentDay &&
+          currentTime === checkinOpenTime &&
           !windowState.isOpen;
 
         // Check if it's time to close
-        const shouldClose = 
-          DAYS_MAP[closeDay] === currentDay &&
-          currentTime === closeTime &&
+        const shouldClose =
+          DAYS_MAP[checkinCloseDay.toLowerCase()] === currentDay &&
+          currentTime === checkinCloseTime &&
           windowState.isOpen;
 
         if (shouldOpen) {
@@ -74,7 +79,11 @@ export const setupCheckinWindowScheduler = (io) => {
             timestamp: now.toISOString(),
           });
 
-          // TODO: Send push notifications to gym members
+          sendPushToGymMembers(challenge.gymId, {
+            title: '✅ Check-in window is open!',
+            body: `Submit your ${challenge.name} check-in now`,
+            data: { type: 'checkin_window', challengeId: challenge.id },
+          }).catch(console.error);
         }
 
         if (shouldClose) {
@@ -95,7 +104,11 @@ export const setupCheckinWindowScheduler = (io) => {
             timestamp: now.toISOString(),
           });
 
-          // TODO: Send push notifications to gym members
+          sendPushToGymMembers(challenge.gymId, {
+            title: '🔒 Check-in window closed',
+            body: `The ${challenge.name} check-in window is now closed`,
+            data: { type: 'checkin_window_closed', challengeId: challenge.id },
+          }).catch(console.error);
         }
       }
     } catch (error) {

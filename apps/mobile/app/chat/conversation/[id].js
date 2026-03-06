@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Modal, FlatList, Image, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Send, Smile, Image as ImageIcon, X, Search } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../../store/authStore';
-import api, { messageAPI } from '../../../lib/api';
+import api, { messageAPI, conversationAPI } from '../../../lib/api';
+import { getSocket } from '../../../lib/socket';
 
 const GIPHY_API_KEY = 'J0YCFCoA6FVyERMMdZsQ2tqak05QhycA';
 const EMOJIS = ['👍', '❤️', '😂', '🔥', '💪', '🎉', '😮', '🙏'];
@@ -25,11 +26,56 @@ export default function ConversationScreen() {
     loadMessages();
   }, [id]);
 
+  // Real-time socket listeners
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const addMessage = (msg) => {
+      // Skip if it came from us (already shown via optimistic update)
+      if (msg.isMine) return;
+      setMessages(prev => {
+        if (prev.some(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+    };
+
+    if (type === 'locker-room') {
+      socket.emit('join_locker_room');
+      socket.on('new_locker_room_message', addMessage);
+      return () => { socket.off('new_locker_room_message', addMessage); };
+    }
+
+    if (type === 'team') {
+      socket.emit('join_team', id);
+      socket.on('new_team_message', addMessage);
+      return () => {
+        socket.emit('leave_team', id);
+        socket.off('new_team_message', addMessage);
+      };
+    }
+
+    if (type === 'dm') {
+      const handleDM = (msg) => {
+        if (msg.conversationId !== id) return;
+        addMessage(msg);
+      };
+      socket.on('new_dm_message', handleDM);
+      return () => { socket.off('new_dm_message', handleDM); };
+    }
+  }, [id, type]);
+
   const loadMessages = async () => {
     try {
-      const response = type === 'locker-room'
-        ? await messageAPI.getLockerRoom(id)
-        : await messageAPI.getTeam(id);
+      let response;
+      if (type === 'locker-room') {
+        response = await messageAPI.getLockerRoom(id);
+      } else if (type === 'dm') {
+        response = await conversationAPI.getMessages(id);
+      } else {
+        response = await messageAPI.getTeam(id);
+      }
       setMessages(response.data);
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: false }), 100);
     } catch (error) {
@@ -64,6 +110,8 @@ export default function ConversationScreen() {
     try {
       if (type === 'locker-room') {
         await messageAPI.postLockerRoom({ gymId: id, text: messageText, imageUrl: messageImage });
+      } else if (type === 'dm') {
+        await conversationAPI.sendMessage(id, { text: messageText, imageUrl: messageImage });
       } else {
         await messageAPI.postTeam(id, { text: messageText, imageUrl: messageImage });
       }
@@ -112,6 +160,8 @@ export default function ConversationScreen() {
     try {
       if (type === 'locker-room') {
         await messageAPI.postLockerRoom({ gymId: id, gifUrl });
+      } else if (type === 'dm') {
+        await conversationAPI.sendMessage(id, { gifUrl });
       } else {
         await messageAPI.postTeam(id, { gifUrl });
       }

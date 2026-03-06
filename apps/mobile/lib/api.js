@@ -32,6 +32,7 @@ export const authAPI = {
 export const userAPI = {
   getStats: (gymId) => api.get(`/users/me/stats?gymId=${gymId}`),
   updateProfile: (data) => api.put('/users/me', data),
+  savePushToken: (token, platform) => api.post('/users/me/push-token', { token, platform }),
 };
 
 // Gym endpoints
@@ -42,6 +43,7 @@ export const gymAPI = {
   getById: (id) => api.get(`/gyms/${id}`),
   getChallenges: (gymId) => api.get(`/gyms/${gymId}/challenges`),
   getInvites: (gymId) => api.get(`/gyms/${gymId}/invites`),
+  getMembers: (gymId) => api.get(`/gyms/${gymId}/members`),
   update: (id, data) => api.put(`/gyms/${id}`, data),
   createInvite: (gymId, data) => api.post(`/gyms/${gymId}/invites`, data),
   joinWithCode: (code) => api.post(`/gyms/join/${code}`),
@@ -52,15 +54,23 @@ export const challengeAPI = {
   create: (data) => api.post('/challenges', data),
   get: (id) => api.get(`/challenges/${id}`),
   update: (id, data) => api.put(`/challenges/${id}`, data),
+  end: (id) => api.post(`/challenges/${id}/end`),
   toggleWindow: (id, isOpen) => api.post(`/challenges/${id}/checkin-window/toggle`, { isOpen }),
   addCriteria: (challengeId, data) => api.post(`/challenges/${challengeId}/criteria`, data),
+  deleteCriteria: (challengeId, criteriaId) => api.delete(`/challenges/${challengeId}/criteria/${criteriaId}`),
 };
 
-// Checkin endpoints  
+// Criteria endpoints
+export const criteriaAPI = {
+  list: (challengeId) => api.get(`/criteria?challengeId=${challengeId}`),
+};
+
+// Checkin endpoints
 export const checkinAPI = {
   submit: (data) => api.post('/checkins', data),
   getDraft: (challengeId) => api.get(`/checkins/draft?challengeId=${challengeId}`),
   saveDraft: (data) => api.put('/checkins/draft', data),
+  getHistory: (challengeId) => api.get(`/checkins?challengeId=${challengeId}`),
 };
 
 // Leaderboard endpoints
@@ -83,6 +93,7 @@ export const teamAPI = {
 export const adminAPI = {
   getStats: (gymId) => api.get(`/admin/stats?gymId=${gymId}`),
   getMembers: (gymId) => api.get(`/admin/members?gymId=${gymId}`),
+  getCheckinStatus: (gymId, challengeId) => api.get(`/admin/checkin-status?gymId=${gymId}&challengeId=${challengeId}`),
   assignTeam: (userId, gymId, teamId) => api.put(`/admin/users/${userId}/team`, { gymId, teamId }),
   adjustPoints: (data) => api.post('/admin/points', data),
   setCoach: (userId, gymId, isCoach) => api.put(`/admin/users/${userId}/coach`, { gymId, isCoach }),
@@ -91,6 +102,14 @@ export const adminAPI = {
 // Coach endpoints
 export const coachAPI = {
   getMyTeams: () => api.get('/coaches/my-teams'),
+};
+
+// Conversation (DM) endpoints
+export const conversationAPI = {
+  list: (gymId) => api.get(`/conversations?gymId=${gymId}`),
+  create: (data) => api.post('/conversations', data),
+  getMessages: (id) => api.get(`/conversations/${id}/messages`),
+  sendMessage: (id, data) => api.post(`/conversations/${id}/messages`, data),
 };
 
 // Message endpoints
@@ -134,6 +153,22 @@ export const goalAPI = {
   update: (id, data) => api.put(`/goals/${id}`, data),
   delete: (id) => api.delete(`/goals/${id}`),
   getForUser: (userId) => api.get(`/goals/user/${userId}`),
+};
+
+// Upload endpoint
+export const uploadAPI = {
+  image: (uri) => {
+    const filename = uri.split('/').pop() || 'photo.jpg';
+    const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+    const type = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+
+    const formData = new FormData();
+    formData.append('image', { uri, name: filename, type });
+
+    return api.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 export default api;

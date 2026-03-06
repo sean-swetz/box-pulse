@@ -7,7 +7,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Camera, Plus, Trash2, ChevronDown } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../store/authStore';
-import { recipeAPI } from '../../lib/api';
+import { recipeAPI, uploadAPI } from '../../lib/api';
 
 const CATEGORIES = ['High Protein', 'Vegetarian', 'Snack', 'Meal Prep', 'Breakfast', 'Other'];
 
@@ -15,6 +15,7 @@ export default function CreateRecipeScreen() {
   const { editId } = useLocalSearchParams();
   const { selectedGym } = useAuthStore();
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
 
   const [form, setForm] = useState({
@@ -67,7 +68,16 @@ export default function CreateRecipeScreen() {
       quality: 0.8,
     });
     if (!result.canceled) {
-      setForm(f => ({ ...f, imageUrl: result.assets[0].uri }));
+      const uri = result.assets[0].uri;
+      setUploadingImage(true);
+      try {
+        const uploadRes = await uploadAPI.image(uri);
+        setForm(f => ({ ...f, imageUrl: uploadRes.data.url }));
+      } catch (e) {
+        Alert.alert('Error', 'Failed to upload image');
+      } finally {
+        setUploadingImage(false);
+      }
     }
   };
 
@@ -168,8 +178,13 @@ export default function CreateRecipeScreen() {
 
       <ScrollView className="flex-1 px-6 py-6" keyboardShouldPersistTaps="handled">
         {/* Photo */}
-        <TouchableOpacity onPress={pickImage} className="mb-6">
-          {form.imageUrl ? (
+        <TouchableOpacity onPress={pickImage} disabled={uploadingImage} className="mb-6">
+          {uploadingImage ? (
+            <View className="w-full h-48 rounded-2xl bg-slate-800 border-2 border-dashed border-slate-600 items-center justify-center gap-2">
+              <ActivityIndicator color="#0df259" />
+              <Text className="text-slate-400 font-medium">Uploading…</Text>
+            </View>
+          ) : form.imageUrl ? (
             <Image source={{ uri: form.imageUrl }} className="w-full h-48 rounded-2xl" resizeMode="cover" />
           ) : (
             <View className="w-full h-48 rounded-2xl bg-slate-800 border-2 border-dashed border-slate-600 items-center justify-center gap-2">

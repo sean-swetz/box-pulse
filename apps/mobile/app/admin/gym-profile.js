@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowLeft, Camera, Save } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../store/authStore';
-import { gymAPI } from '../../lib/api';
+import { gymAPI, uploadAPI } from '../../lib/api';
 
 export default function GymProfileEditor() {
   const { selectedGym } = useAuthStore();
@@ -22,6 +22,7 @@ export default function GymProfileEditor() {
     facebookUrl: ''
   });
   const [loading, setLoading] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     loadGymData();
@@ -64,7 +65,15 @@ export default function GymProfileEditor() {
     });
 
     if (!result.canceled) {
-      setFormData(prev => ({ ...prev, logoUrl: result.assets[0].uri }));
+      setUploadingLogo(true);
+      try {
+        const uploadRes = await uploadAPI.image(result.assets[0].uri);
+        setFormData(prev => ({ ...prev, logoUrl: uploadRes.data.url }));
+      } catch (e) {
+        Alert.alert('Error', 'Failed to upload logo');
+      } finally {
+        setUploadingLogo(false);
+      }
     }
   };
 
@@ -99,8 +108,12 @@ export default function GymProfileEditor() {
         <View className="mb-6">
           <Text className="text-white font-bold mb-3">Gym Logo</Text>
           <View className="items-center">
-            <TouchableOpacity onPress={handleImagePick} className="relative">
-              {formData.logoUrl ? (
+            <TouchableOpacity onPress={handleImagePick} disabled={uploadingLogo} className="relative">
+              {uploadingLogo ? (
+                <View className="w-32 h-32 rounded-2xl bg-slate-800 items-center justify-center border-2 border-dashed border-slate-600">
+                  <ActivityIndicator color="#0df259" />
+                </View>
+              ) : formData.logoUrl ? (
                 <Image source={{ uri: formData.logoUrl }} className="w-32 h-32 rounded-2xl" />
               ) : (
                 <View className="w-32 h-32 rounded-2xl bg-slate-800 items-center justify-center border-2 border-dashed border-slate-600">
@@ -181,7 +194,7 @@ export default function GymProfileEditor() {
             onChangeText={(text) => setFormData(prev => ({ ...prev, primaryColor: text }))}
             placeholder="#0df259"
           />
-          <View 
+          <View
             className="w-full h-12 rounded-xl mt-2"
             style={{ backgroundColor: formData.primaryColor }}
           />
@@ -192,8 +205,8 @@ export default function GymProfileEditor() {
       <View className="bg-surface-dark border-t border-slate-700 px-6 py-4 pb-8">
         <TouchableOpacity
           onPress={handleSave}
-          disabled={loading}
-          className={`bg-primary py-4 rounded-xl flex-row items-center justify-center gap-2 ${loading ? 'opacity-50' : ''}`}
+          disabled={loading || uploadingLogo}
+          className={`bg-primary py-4 rounded-xl flex-row items-center justify-center gap-2 ${(loading || uploadingLogo) ? 'opacity-50' : ''}`}
         >
           <Save size={20} color="#102216" strokeWidth={2} />
           <Text className="text-background-dark font-bold text-base">

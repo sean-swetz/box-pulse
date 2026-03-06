@@ -7,11 +7,11 @@ import { router } from 'expo-router';
 import {
   User, Camera, LogOut, Trophy, Award, Edit2, Check, X,
   Dumbbell, Salad, Target, CheckSquare, Plus, Eye, EyeOff,
-  ArrowLeft, Scale, Trash2,
+  ArrowLeft, Scale, Trash2, ChevronRight, History,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../store/authStore';
-import { userAPI, goalAPI } from '../../lib/api';
+import { userAPI, goalAPI, uploadAPI } from '../../lib/api';
 
 export default function ProfileScreen() {
   const { user, selectedGym, logout, setAuth } = useAuthStore();
@@ -19,6 +19,7 @@ export default function ProfileScreen() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [form, setForm] = useState({
     name: user?.name ?? '',
     favoriteMovement: user?.favoriteMovement ?? '',
@@ -133,11 +134,15 @@ export default function ProfileScreen() {
     });
     if (!result.canceled) {
       const uri = result.assets[0].uri;
+      setUploadingPhoto(true);
       try {
-        const res = await userAPI.updateProfile({ photoUrl: uri });
+        const uploadRes = await uploadAPI.image(uri);
+        const res = await userAPI.updateProfile({ photoUrl: uploadRes.data.url });
         await setAuth(res.data, useAuthStore.getState().token);
       } catch (e) {
         Alert.alert('Error', 'Failed to update profile photo');
+      } finally {
+        setUploadingPhoto(false);
       }
     }
   };
@@ -162,8 +167,16 @@ export default function ProfileScreen() {
                 </View>
               )}
             </View>
-            <TouchableOpacity onPress={handlePickPhoto} className="absolute bottom-0 right-0 w-9 h-9 bg-primary rounded-full items-center justify-center border-4 border-surface-dark">
-              <Camera size={16} color="#102216" strokeWidth={2} />
+            <TouchableOpacity
+              onPress={handlePickPhoto}
+              disabled={uploadingPhoto}
+              className="absolute bottom-0 right-0 w-9 h-9 bg-primary rounded-full items-center justify-center border-4 border-surface-dark"
+            >
+              {uploadingPhoto ? (
+                <ActivityIndicator size="small" color="#102216" />
+              ) : (
+                <Camera size={16} color="#102216" strokeWidth={2} />
+              )}
             </TouchableOpacity>
           </View>
 
@@ -253,13 +266,25 @@ export default function ProfileScreen() {
             </View>
 
             <View className="flex-row gap-4">
-              <View className="flex-1 bg-surface-dark rounded-xl p-5 border border-slate-700">
+              <TouchableOpacity
+                className="flex-1 bg-surface-dark rounded-xl p-5 border border-slate-700"
+                onPress={() => stats?.challengeId && router.push({
+                  pathname: '/(app)/checkin-history',
+                  params: { challengeId: stats.challengeId },
+                })}
+                disabled={!stats?.challengeId}
+              >
                 <View className="flex-row items-center gap-2 mb-2">
                   <CheckSquare size={18} color="#0df259" strokeWidth={2} />
                   <Text className="text-slate-400 text-sm">Check-ins</Text>
                 </View>
-                <Text className="text-white text-3xl font-bold">{stats?.checkinsCount ?? 0}</Text>
-              </View>
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-white text-3xl font-bold">{stats?.checkinsCount ?? 0}</Text>
+                  {stats?.challengeId && (
+                    <ChevronRight size={16} color="#475569" strokeWidth={2} />
+                  )}
+                </View>
+              </TouchableOpacity>
               {stats?.team && (
                 <View className="flex-1 bg-surface-dark rounded-xl p-5 border border-slate-700">
                   <Text className="text-slate-400 text-xs uppercase mb-2">Team</Text>
@@ -270,6 +295,22 @@ export default function ProfileScreen() {
                 </View>
               )}
             </View>
+
+            {stats?.challengeId && (
+              <TouchableOpacity
+                onPress={() => router.push({
+                  pathname: '/(app)/checkin-history',
+                  params: { challengeId: stats.challengeId },
+                })}
+                className="flex-row items-center justify-between bg-surface-dark rounded-xl px-5 py-4 border border-slate-700 mt-1"
+              >
+                <View className="flex-row items-center gap-3">
+                  <History size={20} color="#0df259" strokeWidth={2} />
+                  <Text className="text-white font-semibold">Check-in History</Text>
+                </View>
+                <ChevronRight size={18} color="#475569" strokeWidth={2} />
+              </TouchableOpacity>
+            )}
           </>
         )}
       </View>

@@ -4,20 +4,60 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Server-side point calculation — mirrors mobile logic
-function calculatePoints(criteriaData) {
+// Server-side point calculation using actual criteria definitions
+async function calculatePoints(challengeId, criteriaData) {
+  const criteria = await prisma.criteria.findMany({
+    where: { challengeId, isActive: true },
+  });
+
   let points = 0;
-  if (criteriaData?.dailyGoals) {
-    Object.values(criteriaData.dailyGoals).forEach(week => {
-      if (Array.isArray(week)) {
-        points += week.filter(Boolean).length * 5;
-      }
-    });
+  for (const c of criteria) {
+    const value = criteriaData?.[c.id];
+    if (value === undefined || value === null) continue;
+
+    if (c.type === 'daily' && Array.isArray(value)) {
+      points += value.filter(Boolean).length * c.points;
+    } else if (c.type === 'weekly' && value === true) {
+      points += c.points;
+    } else if (c.type === 'counter' && typeof value === 'number') {
+      const capped = c.maxCount != null ? Math.min(value, c.maxCount) : value;
+      points += Math.max(0, capped) * c.points;
+    }
   }
-  if (criteriaData?.weekly?.attendClasses) points += 15;
-  if (criteriaData?.weekly?.noRestrictedFoods) points += 15;
-  return points;
+  return Math.max(0, points);
 }
+
+// ===== GET /checkins?challengeId= — History for current user =====
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const { challengeId } = req.query;
+    if (!challengeId) return res.status(400).json({ error: 'challengeId is required' });
+
+    const challenge = await prisma.challenge.findUnique({ where: { id: challengeId } });
+    if (!challenge) return res.status(404).json({ error: 'Challenge not found' });
+
+    const membership = await prisma.gymMembership.findUnique({
+      where: { userId_gymId: { userId: req.user.id, gymId: challenge.gymId } },
+    });
+    if (!membership) return res.status(403).json({ error: 'Not a member of this gym' });
+
+    const [checkins, criteria] = await Promise.all([
+      prisma.checkin.findMany({
+        where: { userId: req.user.id, challengeId },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.criteria.findMany({
+        where: { challengeId, isActive: true },
+        orderBy: { order: 'asc' },
+      }),
+    ]);
+
+    res.json({ checkins, criteria, challengeName: challenge.name });
+  } catch (error) {
+    console.error('Get checkin history error:', error);
+    res.status(500).json({ error: 'Failed to fetch check-in history' });
+  }
+});
 
 // ===== POST /checkins — Submit check-in =====
 router.post('/', authenticateToken, async (req, res) => {
@@ -54,7 +94,7 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(409).json({ error: 'Already submitted a check-in this week' });
     }
 
-    const pointsEarned = calculatePoints(criteriaData);
+    const pointsEarned = await calculatePoints(challengeId, criteriaData);
 
     const checkin = await prisma.checkin.create({
       data: { userId: req.user.id, challengeId, weeklyScore: pointsEarned, criteriaData },

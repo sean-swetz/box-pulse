@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { Settings, Users, Trophy, UserPlus, Palette, User, Megaphone } from 'lucide-react-native';
+import { Settings, Users, Trophy, UserPlus, Palette, User, Megaphone, ClipboardCheck } from 'lucide-react-native';
 import { useAuthStore } from '../../store/authStore';
 import { gymAPI, adminAPI } from '../../lib/api';
 
@@ -145,6 +145,12 @@ export default function GymOwnerDashboard() {
               description="Post updates to all members"
               icon={<Megaphone size={24} color="#0df259" strokeWidth={2} />}
               onPress={() => router.push('/admin/announcements')}
+            />
+            <ActionButton
+              label="Check-in Status"
+              description="See who submitted this week"
+              icon={<ClipboardCheck size={24} color="#0df259" strokeWidth={2} />}
+              onPress={() => router.push('/admin/checkin-status')}
             />
           </View>
         </View>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
-import { MessageCircle, Eye, BarChart2, Building2 } from 'lucide-react-native';
+import { MessageCircle, Eye, BarChart2, Building2, ClipboardCheck } from 'lucide-react-native';
 import { useAuthStore } from '../../store/authStore';
 import { coachAPI } from '../../lib/api';
 
@@ -48,13 +48,22 @@ export default function CoachDashboard() {
             <Text className="text-white text-3xl font-bold">Coach Dashboard</Text>
             <Text className="text-slate-400 mt-1">Manage your teams</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => router.push('/(app)/reports')}
-            className="flex-row items-center gap-2 bg-slate-800 px-4 py-2.5 rounded-xl border border-slate-600"
-          >
-            <Building2 size={16} color="#94a3b8" strokeWidth={2} />
-            <Text className="text-slate-300 font-semibold text-sm">Gym Report</Text>
-          </TouchableOpacity>
+          <View className="flex-row gap-2">
+            <TouchableOpacity
+              onPress={() => router.push('/admin/checkin-status')}
+              className="flex-row items-center gap-2 bg-primary/10 px-4 py-2.5 rounded-xl border border-primary/30"
+            >
+              <ClipboardCheck size={16} color="#0df259" strokeWidth={2} />
+              <Text className="text-primary font-semibold text-sm">Check-ins</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/(app)/reports')}
+              className="flex-row items-center gap-2 bg-slate-800 px-4 py-2.5 rounded-xl border border-slate-600"
+            >
+              <Building2 size={16} color="#94a3b8" strokeWidth={2} />
+              <Text className="text-slate-300 font-semibold text-sm">Reports</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 

@@ -1,6 +1,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { prisma } from '../db/client.js';
+import { sendPushToGymMembers } from '../services/pushNotifications.js';
 
 const router = express.Router();
 
@@ -56,6 +57,13 @@ router.post('/', authenticateToken, async (req, res) => {
         author: { select: { id: true, name: true, photoUrl: true } },
       },
     });
+
+    // Fire-and-forget push to all gym members (exclude author)
+    sendPushToGymMembers(gymId, {
+      title: `📣 New Announcement`,
+      body: title.trim(),
+      data: { type: 'announcement', gymId, announcementId: announcement.id },
+    }, req.user.id).catch(console.error);
 
     res.status(201).json(announcement);
   } catch (error) {

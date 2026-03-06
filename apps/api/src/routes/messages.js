@@ -62,7 +62,11 @@ router.post('/locker-room', authenticateToken, async (req, res) => {
       include: { user: { select: { id: true, name: true, photoUrl: true } } },
     });
 
-    res.status(201).json(formatMessage(message, req.user.id));
+    const formatted = formatMessage(message, req.user.id);
+    const io = req.app.get('io');
+    io.to('locker_room').emit('new_locker_room_message', formatted);
+
+    res.status(201).json(formatted);
   } catch (error) {
     console.error('Post locker room message error:', error);
     res.status(500).json({ error: 'Failed to send message' });
@@ -110,7 +114,11 @@ router.post('/team/:teamId', authenticateToken, async (req, res) => {
       include: { user: { select: { id: true, name: true, photoUrl: true } } },
     });
 
-    res.status(201).json(formatMessage(message, req.user.id));
+    const formatted = formatMessage(message, req.user.id);
+    const io = req.app.get('io');
+    io.to(`team:${teamId}`).emit('new_team_message', formatted);
+
+    res.status(201).json(formatted);
   } catch (error) {
     console.error('Post team message error:', error);
     res.status(500).json({ error: 'Failed to send message' });

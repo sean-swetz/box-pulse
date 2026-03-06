@@ -158,6 +158,82 @@ router.put('/users/:id/coach', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/admin/checkin-status?gymId=&challengeId=
+// Accessible to both admins and coaches
+router.get('/checkin-status', authenticateToken, async (req, res) => {
+  try {
+    const { gymId, challengeId } = req.query;
+    if (!gymId || !challengeId) return res.status(400).json({ error: 'gymId and challengeId required' });
+
+    // Allow coaches or gym admins
+    const [coachRecord, membership] = await Promise.all([
+      prisma.gymCoach.findFirst({ where: { userId: req.user.id, gymId } }),
+      prisma.gymMembership.findUnique({ where: { userId_gymId: { userId: req.user.id, gymId } } }),
+    ]);
+    const isAdmin = membership?.role === 'owner' || membership?.role === 'admin';
+    if (!coachRecord && !isAdmin) return res.status(403).json({ error: 'Coach or admin access required' });
+
+    // Get window state
+    const windowState = await prisma.checkinWindowState.findUnique({ where: { challengeId } });
+
+    // Get all active members with their team for this challenge
+    const memberships = await prisma.gymMembership.findMany({
+      where: { gymId, isActive: true },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            photoUrl: true,
+            teamMemberships: {
+              where: { team: { challengeId } },
+              include: { team: { select: { id: true, name: true, color: true } } },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Checkins submitted since the window last opened
+    const sinceDate = windowState?.lastOpened ?? new Date(0);
+    const recentCheckins = await prisma.checkin.findMany({
+      where: { challengeId, createdAt: { gte: sinceDate } },
+      select: { userId: true, weeklyScore: true, createdAt: true },
+    });
+    const checkinMap = Object.fromEntries(recentCheckins.map(c => [c.userId, c]));
+
+    const members = memberships.map(m => ({
+      id: m.user.id,
+      name: m.user.name,
+      photoUrl: m.user.photoUrl,
+      team: m.user.teamMemberships[0]?.team ?? null,
+      hasCheckedIn: !!checkinMap[m.user.id],
+      checkinScore: checkinMap[m.user.id]?.weeklyScore ?? null,
+      checkinAt: checkinMap[m.user.id]?.createdAt ?? null,
+    }));
+
+    const submitted = members.filter(m => m.hasCheckedIn).length;
+
+    res.json({
+      members,
+      windowState: {
+        isOpen: windowState?.isOpen ?? false,
+        lastOpened: windowState?.lastOpened ?? null,
+        lastClosed: windowState?.lastClosed ?? null,
+      },
+      summary: {
+        total: members.length,
+        submitted,
+        missing: members.length - submitted,
+      },
+    });
+  } catch (error) {
+    console.error('Get checkin status error:', error);
+    res.status(500).json({ error: 'Failed to fetch check-in status' });
+  }
+});
+
 // POST /api/admin/points
 router.post('/points', authenticateToken, async (req, res) => {
   try {

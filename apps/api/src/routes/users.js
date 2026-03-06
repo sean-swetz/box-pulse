@@ -59,6 +59,7 @@ router.get('/me/stats', authenticateToken, async (req, res) => {
       points,
       rank,
       checkinsCount,
+      challengeId: challenge.id,
       challengeName: challenge.name,
       team: teamMembership?.team ?? null,
       isCoach: !!coachRecord,
@@ -66,6 +67,25 @@ router.get('/me/stats', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Get user stats error:', error);
     res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// ===== POST /users/me/push-token =====
+router.post('/me/push-token', authenticateToken, async (req, res) => {
+  try {
+    const { token, platform } = req.body;
+    if (!token) return res.status(400).json({ error: 'token required' });
+
+    await prisma.pushToken.upsert({
+      where: { token },
+      update: { userId: req.user.id, platform: platform || 'ios' },
+      create: { userId: req.user.id, token, platform: platform || 'ios' },
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Save push token error:', error);
+    res.status(500).json({ error: 'Failed to save push token' });
   }
 });
 

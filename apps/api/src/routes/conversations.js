@@ -1,8 +1,113 @@
 import express from 'express';
 import { prisma } from '../db/client.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { sendPushToUsers } from '../services/pushNotifications.js';
 
 const router = express.Router();
+
+// ===== LIST USER'S DM CONVERSATIONS =====
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const { gymId } = req.query;
+
+    const participations = await prisma.conversationParticipant.findMany({
+      where: { userId: req.user.id },
+      include: {
+        conversation: {
+          include: {
+            participants: {
+              include: {
+                user: { select: { id: true, name: true, photoUrl: true } },
+              },
+            },
+            messages: {
+              where: { deletedAt: null },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    const convs = participations
+      .filter(p => p.conversation && p.conversation.type === 'dm' && (!gymId || p.conversation.gymId === gymId))
+      .sort((a, b) => {
+        const aTime = a.conversation.lastMessageAt ? new Date(a.conversation.lastMessageAt) : new Date(0);
+        const bTime = b.conversation.lastMessageAt ? new Date(b.conversation.lastMessageAt) : new Date(0);
+        return bTime - aTime;
+      })
+      .map(p => {
+        const conv = p.conversation;
+        const other = conv.participants.find(pt => pt.userId !== req.user.id);
+        const lastMsg = conv.messages[0];
+        return {
+          id: conv.id,
+          type: 'dm',
+          name: other?.user?.name ?? 'Unknown',
+          photoUrl: other?.user?.photoUrl ?? null,
+          participantId: other?.user?.id ?? null,
+          lastMessage: lastMsg?.text ?? (lastMsg?.gifUrl ? 'GIF' : null) ?? '',
+          lastMessageAt: conv.lastMessageAt,
+          unreadCount: p.unreadCount ?? 0,
+        };
+      });
+
+    res.json(convs);
+  } catch (error) {
+    console.error('List conversations error:', error);
+    res.status(500).json({ error: 'Failed to fetch conversations' });
+  }
+});
+
+// ===== CREATE OR FIND DM CONVERSATION =====
+router.post('/', authenticateToken, async (req, res) => {
+  try {
+    const { gymId, participantId } = req.body;
+    if (!participantId) return res.status(400).json({ error: 'participantId required' });
+    if (participantId === req.user.id) return res.status(400).json({ error: 'Cannot DM yourself' });
+
+    const [myMembership, theirMembership] = await Promise.all([
+      prisma.gymMembership.findUnique({ where: { userId_gymId: { userId: req.user.id, gymId } } }),
+      prisma.gymMembership.findUnique({ where: { userId_gymId: { userId: participantId, gymId } } }),
+    ]);
+    if (!myMembership) return res.status(403).json({ error: 'Not a gym member' });
+    if (!theirMembership) return res.status(404).json({ error: 'User not found in this gym' });
+
+    // Find existing DM between these two users in this gym
+    const myParticipations = await prisma.conversationParticipant.findMany({
+      where: { userId: req.user.id },
+      select: { conversationId: true },
+    });
+    const myConvIds = myParticipations.map(p => p.conversationId);
+
+    const existing = await prisma.conversation.findFirst({
+      where: {
+        id: { in: myConvIds },
+        type: 'dm',
+        gymId,
+        participants: { some: { userId: participantId } },
+      },
+    });
+
+    if (existing) return res.json(existing);
+
+    const conv = await prisma.conversation.create({
+      data: {
+        type: 'dm',
+        gymId,
+        participants: {
+          create: [{ userId: req.user.id }, { userId: participantId }],
+        },
+      },
+    });
+
+    res.status(201).json(conv);
+  } catch (error) {
+    console.error('Create conversation error:', error);
+    res.status(500).json({ error: 'Failed to create conversation' });
+  }
+});
 
 // ===== GET CONVERSATION MESSAGES =====
 router.get('/:conversationId/messages', authenticateToken, async (req, res) => {
@@ -120,8 +225,11 @@ router.post('/:conversationId/messages', authenticateToken, async (req, res) => 
       data: { lastMessageAt: new Date() }
     });
 
-    // TODO: Emit socket event to other participants
-    // io.to(conversationId).emit('new_message', formattedMessage);
+    // Notify other participants via socket + push
+    const otherParticipants = await prisma.conversationParticipant.findMany({
+      where: { conversationId, userId: { not: req.user.id } },
+      select: { userId: true },
+    });
 
     const formattedMessage = {
       id: message.id,
@@ -133,8 +241,31 @@ router.post('/:conversationId/messages', authenticateToken, async (req, res) => 
       gifUrl: message.gifUrl,
       reactions: {},
       timestamp: message.createdAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      conversationId,
       isMine: true
     };
+
+    // Emit to all participants via socket
+    const io = req.app.get('io');
+    const allParticipants = await prisma.conversationParticipant.findMany({
+      where: { conversationId },
+      select: { userId: true },
+    });
+    allParticipants.forEach(p => {
+      io.to(`user:${p.userId}`).emit('new_dm_message', {
+        ...formattedMessage,
+        isMine: p.userId === req.user.id,
+      });
+    });
+
+    // Push notification to recipients (not sender)
+    if (otherParticipants.length > 0) {
+      sendPushToUsers(otherParticipants.map(p => p.userId), {
+        title: message.user.name,
+        body: text || (gifUrl ? 'Sent a GIF 🎬' : imageUrl ? 'Sent a photo 📷' : ''),
+        data: { type: 'dm', conversationId },
+      }).catch(console.error);
+    }
 
     res.status(201).json(formattedMessage);
   } catch (error) {

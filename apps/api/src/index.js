@@ -23,6 +23,7 @@ import recipeRoutes from './routes/recipes.js';
 import goalRoutes from './routes/goals.js';
 import reportRoutes from './routes/reports.js';
 import announcementRoutes from './routes/announcements.js';
+import uploadRoutes, { uploadsDir } from './routes/upload.js';
 
 // Import socket handlers
 import { setupSocketHandlers } from './socket/index.js';
@@ -64,6 +65,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve uploaded files
+app.use('/uploads', express.static(uploadsDir));
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -94,6 +98,7 @@ app.use('/api/recipes', recipeRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // 404 handler
 app.use((req, res) => {

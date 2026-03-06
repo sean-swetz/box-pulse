@@ -361,4 +361,43 @@ router.post('/join/:code', authenticateToken, async (req, res) => {
   }
 });
 
+// ===== GET GYM MEMBERS (public to gym members) =====
+router.get('/:gymId/members', authenticateToken, async (req, res) => {
+  try {
+    const { gymId } = req.params;
+
+    const membership = await prisma.gymMembership.findUnique({
+      where: { userId_gymId: { userId: req.user.id, gymId } },
+    });
+    if (!membership) return res.status(403).json({ error: 'Not a member of this gym' });
+
+    const memberships = await prisma.gymMembership.findMany({
+      where: { gymId, isActive: true },
+      include: {
+        user: { select: { id: true, name: true, photoUrl: true, nickname: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const coachUserIds = new Set(
+      (await prisma.gymCoach.findMany({ where: { gymId }, select: { userId: true } }))
+        .map(c => c.userId)
+    );
+
+    const members = memberships.map(m => ({
+      id: m.user.id,
+      name: m.user.name,
+      photoUrl: m.user.photoUrl,
+      nickname: m.user.nickname,
+      role: m.role,
+      isCoach: coachUserIds.has(m.user.id),
+    }));
+
+    res.json(members);
+  } catch (error) {
+    console.error('Get gym members error:', error);
+    res.status(500).json({ error: 'Failed to fetch members' });
+  }
+});
+
 export default router;

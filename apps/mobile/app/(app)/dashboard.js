@@ -89,76 +89,43 @@ export default function DashboardScreen() {
       </View>
 
       {/* Quick Actions */}
-      <View className="px-6 py-6">
+      <View className="px-6 py-5">
         <Text className="text-white text-xl font-bold mb-4">Quick Actions</Text>
-        <View className="gap-4">
-          <TouchableOpacity
+        <View className="flex-row flex-wrap gap-3">
+          <ActionTile
+            label="Check In"
+            icon={<CheckCircle size={30} color="#102216" strokeWidth={2} />}
             onPress={() => router.push('/(app)/checkin')}
-            className="bg-primary p-6 rounded-2xl"
-          >
-            <View className="flex-row items-center gap-4">
-              <CheckCircle size={32} color="#102216" strokeWidth={2} />
-              <View className="flex-1">
-                <Text className="text-background-dark font-bold text-lg">Check In</Text>
-                <Text className="text-background-dark/70 text-sm">Submit this week's progress</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
+            primary
+          />
+          <ActionTile
+            label="Leaderboard"
+            icon={<Trophy size={28} color="#0df259" strokeWidth={2} />}
             onPress={() => router.push('/(app)/leaderboard')}
-            className="bg-surface-dark p-6 rounded-2xl border border-slate-700"
-          >
-            <View className="flex-row items-center gap-4">
-              <Trophy size={32} color="#0df259" strokeWidth={2} />
-              <View className="flex-1">
-                <Text className="text-white font-bold text-lg">Leaderboard</Text>
-                <Text className="text-slate-400 text-sm">See your ranking</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
+          />
+          <ActionTile
+            label="Team Chat"
+            icon={<MessageCircle size={28} color="#0df259" strokeWidth={2} />}
             onPress={() => router.push('/(app)/chat')}
-            className="bg-surface-dark p-6 rounded-2xl border border-slate-700"
-          >
-            <View className="flex-row items-center gap-4">
-              <MessageCircle size={32} color="#0df259" strokeWidth={2} />
-              <View className="flex-1">
-                <Text className="text-white font-bold text-lg">Team Chat</Text>
-                <Text className="text-slate-400 text-sm">Connect with your team</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
+          />
+          <ActionTile
+            label="Recipes"
+            icon={<BookOpen size={28} color="#0df259" strokeWidth={2} />}
+            onPress={() => router.push('/(app)/recipes')}
+          />
           {isAdmin && (
-            <TouchableOpacity
+            <ActionTile
+              label="Gym Admin"
+              icon={<Settings size={28} color="#0df259" strokeWidth={2} />}
               onPress={() => router.push('/(app)/admin')}
-              className="bg-surface-dark p-6 rounded-2xl border border-primary/30"
-            >
-              <View className="flex-row items-center gap-4">
-                <Settings size={32} color="#0df259" strokeWidth={2} />
-                <View className="flex-1">
-                  <Text className="text-white font-bold text-lg">Gym Admin</Text>
-                  <Text className="text-slate-400 text-sm">Manage members, teams & challenges</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
+            />
           )}
-
           {stats?.isCoach && (
-            <TouchableOpacity
+            <ActionTile
+              label="Coach"
+              icon={<Users size={28} color="#0df259" strokeWidth={2} />}
               onPress={() => router.push('/(app)/coach-dashboard')}
-              className="bg-surface-dark p-6 rounded-2xl border border-primary/30"
-            >
-              <View className="flex-row items-center gap-4">
-                <Users size={32} color="#0df259" strokeWidth={2} />
-                <View className="flex-1">
-                  <Text className="text-white font-bold text-lg">Coach Dashboard</Text>
-                  <Text className="text-slate-400 text-sm">View your team's progress</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
+            />
           )}
         </View>
       </View>
@@ -286,6 +253,25 @@ export default function DashboardScreen() {
         )}
       </View>
     </ScrollView>
+  );
+}
+
+function ActionTile({ label, icon, onPress, primary }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      className="bg-surface-dark border border-slate-700 rounded-2xl p-4 items-center justify-center gap-2"
+      style={{ flexBasis: '47%', flexGrow: 1 }}
+    >
+      <View
+        className={`w-14 h-14 rounded-2xl items-center justify-center ${
+          primary ? 'bg-primary' : 'bg-slate-800'
+        }`}
+      >
+        {icon}
+      </View>
+      <Text className="text-white text-sm font-semibold text-center">{label}</Text>
+    </TouchableOpacity>
   );
 }
 

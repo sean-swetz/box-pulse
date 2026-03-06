@@ -13,6 +13,7 @@ export default function AppLayout() {
         <Stack.Screen name="profile" options={{ animation: 'none' }} />
         <Stack.Screen name="recipes" options={{ animation: 'none' }} />
         <Stack.Screen name="announcements" options={{ animation: 'none' }} />
+        <Stack.Screen name="checkin-history" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="admin" />
         <Stack.Screen name="coach-dashboard" />
         <Stack.Screen name="reports" />

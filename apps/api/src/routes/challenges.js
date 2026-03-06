@@ -2,6 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import { prisma } from '../db/client.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { sendPushToGymMembers } from '../services/pushNotifications.js';
 
 const router = express.Router();
 
@@ -158,13 +159,24 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Owner or admin access required' });
     }
 
+    // Map optional checkinSchedule object to individual DB columns
+    const scheduleFields = req.body.checkinSchedule !== undefined
+      ? {
+          checkinAutoOpen: !!req.body.checkinSchedule,
+          checkinOpenDay: req.body.checkinSchedule?.openDay?.toUpperCase() ?? null,
+          checkinOpenTime: req.body.checkinSchedule?.openTime ?? null,
+          checkinCloseDay: req.body.checkinSchedule?.closeDay?.toUpperCase() ?? null,
+          checkinCloseTime: req.body.checkinSchedule?.closeTime ?? null,
+        }
+      : {};
+
     const updated = await prisma.challenge.update({
       where: { id: req.params.id },
       data: {
-        name: req.body.name,
-        description: req.body.description,
-        checkinWindowEnabled: req.body.checkinWindowEnabled,
-        checkinSchedule: req.body.checkinSchedule,
+        ...(req.body.name !== undefined && { name: req.body.name }),
+        ...(req.body.description !== undefined && { description: req.body.description }),
+        ...(req.body.checkinWindowEnabled !== undefined && { checkinWindowEnabled: req.body.checkinWindowEnabled }),
+        ...scheduleFields,
       }
     });
 
@@ -222,6 +234,49 @@ router.post('/:id/checkin-window/toggle', authenticateToken, async (req, res) =>
   } catch (error) {
     console.error('Toggle checkin window error:', error);
     res.status(500).json({ error: 'Failed to toggle check-in window' });
+  }
+});
+
+// ===== END CHALLENGE =====
+router.post('/:id/end', authenticateToken, async (req, res) => {
+  try {
+    const challenge = await prisma.challenge.findUnique({ where: { id: req.params.id } });
+    if (!challenge) return res.status(404).json({ error: 'Challenge not found' });
+
+    const membership = await prisma.gymMembership.findUnique({
+      where: { userId_gymId: { userId: req.user.id, gymId: challenge.gymId } },
+    });
+    if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
+      return res.status(403).json({ error: 'Owner or admin access required' });
+    }
+
+    if (!challenge.isActive) {
+      return res.status(400).json({ error: 'Challenge is already ended' });
+    }
+
+    // Mark inactive and close the check-in window in one transaction
+    const [updated] = await Promise.all([
+      prisma.challenge.update({
+        where: { id: req.params.id },
+        data: { isActive: false },
+      }),
+      prisma.checkinWindowState.updateMany({
+        where: { challengeId: req.params.id, isOpen: true },
+        data: { isOpen: false, lastClosed: new Date() },
+      }),
+    ]);
+
+    // Notify all gym members
+    sendPushToGymMembers(challenge.gymId, {
+      title: '🏁 Challenge Ended',
+      body: `${challenge.name} has officially ended. Check the leaderboard for final standings!`,
+      data: { type: 'challenge_ended', challengeId: challenge.id },
+    }).catch(() => {}); // fire-and-forget
+
+    res.json(updated);
+  } catch (error) {
+    console.error('End challenge error:', error);
+    res.status(500).json({ error: 'Failed to end challenge' });
   }
 });
 
