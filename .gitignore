@@ -41,6 +41,8 @@ build/
 # React Native
 apps/mobile/.expo/
 apps/mobile/dist/
+apps/mobile/ios/
+apps/mobile/android/
 
 # Database
 *.db
