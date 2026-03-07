@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.boxpulse.app"
+      "bundleIdentifier": "com.boxpulse.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -47,7 +50,6 @@
     },
     "experiments": {
       "typedRoutes": true
-    },
-    "newArchEnabled": false
+    }
   }
 }

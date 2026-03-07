@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import RenderHtml from 'react-native-render-html';
 import { router } from 'expo-router';
 import { ArrowLeft, Bell, Megaphone } from 'lucide-react-native';
 import { useAuthStore } from '../../store/authStore';
@@ -97,8 +96,6 @@ const HTML_STYLES = {
 };
 
 function AnnouncementCard({ item }) {
-  const { width } = useWindowDimensions();
-
   const timeAgo = (dateStr) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
@@ -113,13 +110,7 @@ function AnnouncementCard({ item }) {
   return (
     <View className="bg-surface-dark rounded-2xl p-5 border border-slate-700">
       <Text className="text-white font-bold text-lg mb-3">{item.title}</Text>
-      <RenderHtml
-        contentWidth={width - 88}
-        source={{ html: item.body }}
-        tagsStyles={HTML_STYLES}
-        baseStyle={{ color: '#cbd5e1' }}
-        enableExperimentalMarginCollapsing
-      />
+      <Text className="text-slate-400 text-sm leading-6">{item.body}</Text>
       <View className="flex-row items-center gap-2 mt-4 pt-4 border-t border-slate-700/60">
         <View className="w-6 h-6 rounded-full bg-primary/20 items-center justify-center">
           <Text className="text-primary text-xs font-bold">
