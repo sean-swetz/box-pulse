@@ -12,7 +12,7 @@ const RIGHT_TABS = [
   { name: 'Profile', path: '/(app)/profile', icon: User },
 ];
 
-const BAR_HEIGHT = 72;
+const BAR_HEIGHT = 122;
 const FAB_SIZE = 86;
 const FAB_LIFT = -18; // px the FAB center rises above the bar top (negative = sinks into bar)
 

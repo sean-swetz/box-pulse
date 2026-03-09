@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Send, Smile, Image as ImageIcon, X, Search } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../../store/authStore';
-import api, { messageAPI, conversationAPI } from '../../../lib/api';
+import api, { messageAPI, conversationAPI, uploadAPI } from '../../../lib/api';
 import { getSocket } from '../../../lib/socket';
 
 const GIPHY_API_KEY = 'J0YCFCoA6FVyERMMdZsQ2tqak05QhycA';
@@ -87,33 +87,44 @@ export default function ConversationScreen() {
   const handleSend = async () => {
     if (!inputText.trim() && !selectedImage) return;
 
+    const messageText = inputText.trim();
+    const localImageUri = selectedImage;
+    setInputText('');
+    setSelectedImage(null);
+
+    // Show optimistic message immediately with local URI so it appears right away
     const optimisticMessage = {
       id: Date.now().toString(),
       userId: user?.id,
       userName: user?.name,
-      text: inputText.trim(),
-      imageUrl: selectedImage,
+      text: messageText,
+      imageUrl: localImageUri,
       timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       reactions: {},
       isMine: true,
     };
 
     setMessages(prev => [...prev, optimisticMessage]);
-    
-    const messageText = inputText.trim();
-    const messageImage = selectedImage;
-    setInputText('');
-    setSelectedImage(null);
-    
     setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+
+    // Upload image to server before saving the message
+    let remoteImageUrl = null;
+    if (localImageUri) {
+      try {
+        const uploadRes = await uploadAPI.image(localImageUri);
+        remoteImageUrl = uploadRes.data.url;
+      } catch (error) {
+        console.error('Image upload failed:', error);
+      }
+    }
 
     try {
       if (type === 'locker-room') {
-        await messageAPI.postLockerRoom({ gymId: id, text: messageText, imageUrl: messageImage });
+        await messageAPI.postLockerRoom({ gymId: id, text: messageText, imageUrl: remoteImageUrl });
       } else if (type === 'dm') {
-        await conversationAPI.sendMessage(id, { text: messageText, imageUrl: messageImage });
+        await conversationAPI.sendMessage(id, { text: messageText, imageUrl: remoteImageUrl });
       } else {
-        await messageAPI.postTeam(id, { text: messageText, imageUrl: messageImage });
+        await messageAPI.postTeam(id, { text: messageText, imageUrl: remoteImageUrl });
       }
     } catch (error) {
       console.error('Failed to save message:', error);

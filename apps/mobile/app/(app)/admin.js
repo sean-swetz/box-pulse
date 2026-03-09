@@ -83,25 +83,29 @@ export default function GymOwnerDashboard() {
         <View className="mb-6">
           <Text className="text-white text-xl font-bold mb-4">Overview</Text>
           <View className="flex-row flex-wrap gap-3">
-            <StatCard 
-              label="Members" 
-              value={stats?.totalMembers} 
+            <StatCard
+              label="Members"
+              value={stats?.totalMembers}
               icon={<Users size={24} color="#0df259" strokeWidth={2} />}
+              onPress={() => router.push('/admin/members')}
             />
-            <StatCard 
-              label="Teams" 
-              value={stats?.activeTeams} 
+            <StatCard
+              label="Teams"
+              value={stats?.activeTeams}
               icon={<Users size={24} color="#0df259" strokeWidth={2} />}
+              onPress={() => router.push('/admin/teams')}
             />
-            <StatCard 
-              label="Challenges" 
-              value={stats?.activeChallenges} 
+            <StatCard
+              label="Challenges"
+              value={stats?.activeChallenges}
               icon={<Trophy size={24} color="#0df259" strokeWidth={2} />}
+              onPress={() => router.push('/admin/challenges')}
             />
-            <StatCard 
-              label="Pending Invites" 
-              value={stats?.pendingInvites} 
+            <StatCard
+              label="Pending Invites"
+              value={stats?.pendingInvites}
               icon={<UserPlus size={24} color="#0df259" strokeWidth={2} />}
+              onPress={() => router.push('/admin/invites')}
             />
           </View>
         </View>
@@ -159,15 +163,18 @@ export default function GymOwnerDashboard() {
   );
 }
 
-function StatCard({ label, value, icon }) {
+function StatCard({ label, value, icon, onPress }) {
   return (
-    <View className="flex-1 min-w-[45%] bg-surface-dark rounded-xl p-4 border border-slate-700">
+    <TouchableOpacity
+      onPress={onPress}
+      className="flex-1 min-w-[45%] bg-surface-dark rounded-xl p-4 border border-slate-700 active:bg-slate-800"
+    >
       <View className="flex-row items-center justify-between mb-2">
         {icon}
         <Text className="text-white text-2xl font-bold">{value}</Text>
       </View>
       <Text className="text-slate-400 text-sm">{label}</Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 

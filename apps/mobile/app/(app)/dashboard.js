@@ -122,7 +122,7 @@ export default function DashboardScreen() {
           )}
           {stats?.isCoach && (
             <ActionTile
-              label="Coach"
+              label={"Coach\nDashboard"}
               icon={<Users size={28} color="#0df259" strokeWidth={2} />}
               onPress={() => router.push('/(app)/coach-dashboard')}
             />
@@ -265,7 +265,7 @@ function ActionTile({ label, icon, onPress, primary }) {
     >
       <View
         className={`w-14 h-14 rounded-2xl items-center justify-center ${
-          primary ? 'bg-primary' : 'bg-slate-800'
+          primary ? 'bg-primary' : 'bg-white/50'
         }`}
       >
         {icon}

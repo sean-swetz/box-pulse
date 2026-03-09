@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  ActivityIndicator, Alert, Modal, Platform, Switch,
+  ActivityIndicator, Alert, Modal, Platform, Switch, KeyboardAvoidingView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowLeft, Plus, Trophy, X, ChevronDown, ChevronUp, Calendar, Trash2, FlagOff, Clock } from 'lucide-react-native';
@@ -407,6 +407,7 @@ export default function ChallengesAdmin() {
       {/* Add Criteria Modal */}
       <Modal visible={showCriteriaModal} animationType="slide" transparent>
         <View className="flex-1 bg-black/70 justify-end">
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View className="bg-surface-dark rounded-t-3xl px-6 pt-6 pb-12">
             <View className="flex-row items-center justify-between mb-6">
               <Text className="text-white text-xl font-bold">Add Criteria</Text>
@@ -480,6 +481,7 @@ export default function ChallengesAdmin() {
               )}
             </TouchableOpacity>
           </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </View>
