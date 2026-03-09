@@ -139,32 +139,47 @@ router.delete('/:gymId/coaches/:coachId', authenticateToken, async (req, res) =>
 // ===== GET MY COACHED TEAMS =====
 router.get('/my-teams', authenticateToken, async (req, res) => {
   try {
-    const coaching = await prisma.gymCoach.findMany({
-      where: {
-        userId: req.user.id,
-      },
+    const teamInclude = {
       include: {
-        gym: true,
-        team: {
+        members: {
           include: {
-            members: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    photoUrl: true,
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+            user: {
+              select: { id: true, name: true, email: true, photoUrl: true },
+            },
+          },
+        },
+      },
+    };
+
+    const coaching = await prisma.gymCoach.findMany({
+      where: { userId: req.user.id },
+      include: { gym: true, team: teamInclude },
     });
 
-    res.json(coaching);
+    // If any GymCoach record has no teamId, fall back to the coach's TeamMembership
+    const result = await Promise.all(
+      coaching.map(async (c) => {
+        if (c.team) return c;
+
+        const teamMembership = await prisma.teamMembership.findFirst({
+          where: { userId: req.user.id, team: { gymId: c.gymId } },
+          include: { team: teamInclude },
+        });
+
+        if (teamMembership?.team) {
+          // Also repair the GymCoach record so future requests are fast
+          await prisma.gymCoach.update({
+            where: { id: c.id },
+            data: { teamId: teamMembership.teamId },
+          });
+          return { ...c, team: teamMembership.team };
+        }
+
+        return c;
+      })
+    );
+
+    res.json(result);
   } catch (error) {
     console.error('Get my teams error:', error);
     res.status(500).json({ error: 'Failed to fetch coached teams' });

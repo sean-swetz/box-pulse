@@ -111,15 +111,60 @@ router.put('/users/:id/team', authenticateToken, async (req, res) => {
     });
     const gymTeamIds = gymTeams.map((t) => t.id);
 
+    // Subtract old team points before removing membership
     if (gymTeamIds.length > 0) {
+      const oldMemberships = await prisma.teamMembership.findMany({
+        where: { userId: req.params.id, teamId: { in: gymTeamIds } },
+        select: { teamId: true, points: true },
+      });
+      for (const old of oldMemberships) {
+        if (old.points > 0) {
+          await prisma.team.update({
+            where: { id: old.teamId },
+            data: { totalPoints: { decrement: old.points } },
+          });
+        }
+      }
       await prisma.teamMembership.deleteMany({
         where: { userId: req.params.id, teamId: { in: gymTeamIds } },
       });
     }
 
     if (teamId) {
+      // Backfill points from any check-ins already submitted for this team's challenge
+      const team = await prisma.team.findUnique({
+        where: { id: teamId },
+        select: { challengeId: true },
+      });
+      let earnedPoints = 0;
+      if (team?.challengeId) {
+        const checkins = await prisma.checkin.findMany({
+          where: { userId: req.params.id, challengeId: team.challengeId },
+          select: { weeklyScore: true },
+        });
+        earnedPoints = checkins.reduce((sum, c) => sum + c.weeklyScore, 0);
+      }
+
       await prisma.teamMembership.create({
-        data: { userId: req.params.id, teamId },
+        data: { userId: req.params.id, teamId, points: earnedPoints },
+      });
+      if (earnedPoints > 0) {
+        await prisma.team.update({
+          where: { id: teamId },
+          data: { totalPoints: { increment: earnedPoints } },
+        });
+      }
+
+      // Keep GymCoach record in sync if this user is a coach
+      await prisma.gymCoach.updateMany({
+        where: { userId: req.params.id, gymId },
+        data: { teamId },
+      });
+    } else {
+      // Unassigning from all teams — clear coach team link too
+      await prisma.gymCoach.updateMany({
+        where: { userId: req.params.id, gymId },
+        data: { teamId: null },
       });
     }
 
@@ -145,7 +190,26 @@ router.put('/users/:id/coach', authenticateToken, async (req, res) => {
     if (isCoach) {
       const existing = await prisma.gymCoach.findFirst({ where: { userId: req.params.id, gymId } });
       if (!existing) {
-        await prisma.gymCoach.create({ data: { userId: req.params.id, gymId } });
+        // Link to the user's current team in this gym (if any) so the dashboard shows immediately
+        const teamMembership = await prisma.teamMembership.findFirst({
+          where: { userId: req.params.id, team: { gymId } },
+          select: { teamId: true },
+        });
+        await prisma.gymCoach.create({
+          data: { userId: req.params.id, gymId, teamId: teamMembership?.teamId ?? null },
+        });
+      } else if (!existing.teamId) {
+        // Already a coach but teamId was never set — backfill it now
+        const teamMembership = await prisma.teamMembership.findFirst({
+          where: { userId: req.params.id, team: { gymId } },
+          select: { teamId: true },
+        });
+        if (teamMembership) {
+          await prisma.gymCoach.update({
+            where: { id: existing.id },
+            data: { teamId: teamMembership.teamId },
+          });
+        }
       }
     } else {
       await prisma.gymCoach.deleteMany({ where: { userId: req.params.id, gymId } });
