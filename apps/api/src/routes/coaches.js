@@ -167,11 +167,11 @@ router.get('/my-teams', authenticateToken, async (req, res) => {
         });
 
         if (teamMembership?.team) {
-          // Also repair the GymCoach record so future requests are fast
-          await prisma.gymCoach.update({
+          // Repair the GymCoach record so future requests don't need the fallback
+          prisma.gymCoach.update({
             where: { id: c.id },
             data: { teamId: teamMembership.teamId },
-          });
+          }).catch((e) => console.warn('GymCoach repair skipped:', e.message));
           return { ...c, team: teamMembership.team };
         }
 

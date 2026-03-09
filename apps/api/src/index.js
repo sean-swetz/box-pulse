@@ -129,4 +129,13 @@ httpServer.listen(PORT, () => {
   setupCheckinWindowScheduler(io);
 });
 
+// Prevent unhandled promise rejections from crashing the process
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled promise rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+
 export { app, io };
