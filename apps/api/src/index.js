@@ -23,7 +23,7 @@ import recipeRoutes from './routes/recipes.js';
 import goalRoutes from './routes/goals.js';
 import reportRoutes from './routes/reports.js';
 import announcementRoutes from './routes/announcements.js';
-import uploadRoutes, { uploadsDir } from './routes/upload.js';
+import uploadRoutes from './routes/upload.js';
 
 // Import socket handlers
 import { setupSocketHandlers } from './socket/index.js';
@@ -64,9 +64,6 @@ app.use(cors({
 // Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Serve uploaded files
-app.use('/uploads', express.static(uploadsDir));
 
 // Rate limiting
 const limiter = rateLimit({

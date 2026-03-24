@@ -128,6 +128,10 @@ model User {
   favoriteVeggie     String?
   challengeGoal      String?
   
+  // Password Reset
+  resetToken         String?
+  resetTokenExpiry   DateTime?
+
   // Timestamps
   createdAt          DateTime      @default(now())
   lastCheckinAt      DateTime?
