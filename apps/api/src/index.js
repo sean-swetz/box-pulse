@@ -65,6 +65,12 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Prevent CDN caching of API responses
+app.use('/api/', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
