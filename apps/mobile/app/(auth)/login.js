@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Dumbbell } from 'lucide-react-native';
 import { authAPI } from '../../lib/api';
@@ -31,11 +31,18 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-background-dark"
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      className="bg-background-dark"
     >
-      <View className="flex-1 justify-center px-6">
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+      <View className="px-6 py-12">
         {/* Logo */}
         <View className="items-center mb-12">
           <View className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-xl mb-4">
@@ -60,6 +67,8 @@ export default function LoginScreen() {
               placeholderTextColor="#64748b"
               autoCapitalize="none"
               keyboardType="email-address"
+              textContentType="emailAddress"
+              autoComplete="email"
               className="bg-slate-800 text-white px-4 py-4 rounded-xl border border-slate-700 focus:border-primary"
             />
           </View>
@@ -72,6 +81,8 @@ export default function LoginScreen() {
               placeholder="••••••••"
               placeholderTextColor="#64748b"
               secureTextEntry
+              textContentType="password"
+              autoComplete="password"
               className="bg-slate-800 text-white px-4 py-4 rounded-xl border border-slate-700 focus:border-primary"
             />
           </View>
@@ -107,6 +118,7 @@ export default function LoginScreen() {
           </View>
         </View>
       </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
