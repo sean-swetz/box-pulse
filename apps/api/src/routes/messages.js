@@ -11,6 +11,7 @@ function formatMessage(msg, currentUserId) {
     userName: msg.user?.name,
     userPhoto: msg.user?.photoUrl,
     text: msg.text ?? null,
+    imageUrl: msg.imageUrl ?? null,
     gifUrl: msg.gifUrl ?? null,
     gifTitle: msg.gifTitle ?? null,
     reactions: {},
@@ -49,7 +50,7 @@ router.get('/locker-room', authenticateToken, async (req, res) => {
 // ===== POST /locker-room =====
 router.post('/locker-room', authenticateToken, async (req, res) => {
   try {
-    const { gymId, text, gifUrl, gifTitle } = req.body;
+    const { gymId, text, imageUrl, gifUrl, gifTitle } = req.body;
     if (!gymId) return res.status(400).json({ error: 'gymId is required' });
 
     const membership = await prisma.gymMembership.findUnique({
@@ -58,7 +59,7 @@ router.post('/locker-room', authenticateToken, async (req, res) => {
     if (!membership) return res.status(403).json({ error: 'Not a member of this gym' });
 
     const message = await prisma.message.create({
-      data: { gymId, userId: req.user.id, text, gifUrl, gifTitle },
+      data: { gymId, userId: req.user.id, text, imageUrl, gifUrl, gifTitle },
       include: { user: { select: { id: true, name: true, photoUrl: true } } },
     });
 
@@ -102,7 +103,7 @@ router.get('/team/:teamId', authenticateToken, async (req, res) => {
 router.post('/team/:teamId', authenticateToken, async (req, res) => {
   try {
     const { teamId } = req.params;
-    const { text, gifUrl, gifTitle } = req.body;
+    const { text, imageUrl, gifUrl, gifTitle } = req.body;
 
     const membership = await prisma.teamMembership.findFirst({
       where: { teamId, userId: req.user.id },
@@ -110,7 +111,7 @@ router.post('/team/:teamId', authenticateToken, async (req, res) => {
     if (!membership) return res.status(403).json({ error: 'Not a member of this team' });
 
     const message = await prisma.teamMessage.create({
-      data: { teamId, userId: req.user.id, text, gifUrl, gifTitle },
+      data: { teamId, userId: req.user.id, text, imageUrl, gifUrl, gifTitle },
       include: { user: { select: { id: true, name: true, photoUrl: true } } },
     });
 

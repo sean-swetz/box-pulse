@@ -382,8 +382,9 @@ model Message {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   gymId     String   // Gym-scoped locker room
-  
+
   text      String?
+  imageUrl  String?
   gifUrl    String?
   gifTitle  String?
   
@@ -398,8 +399,9 @@ model TeamMessage {
   user      User     @relation(fields: [userId], references: [id])
   teamId    String
   team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  
+
   text      String?
+  imageUrl  String?
   gifUrl    String?
   gifTitle  String?
   
