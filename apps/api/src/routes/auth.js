@@ -101,8 +101,8 @@ router.post('/login', async (req, res) => {
       { expiresIn: '30d' }
     );
 
-    // Return user without password
-    const { password: _, ...userWithoutPassword } = user;
+    // Return user without sensitive fields
+    const { password: _, resetToken: __, resetTokenExpiry: ___, ...userWithoutPassword } = user;
 
     res.json({
       user: userWithoutPassword,
@@ -215,13 +215,22 @@ router.get('/me', authenticateToken, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      include: {
-        team: true,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        nickname: true,
+        photoUrl: true,
+        favoriteMovement: true,
+        favoriteVeggie: true,
+        challengeGoal: true,
+        createdAt: true,
+        lastCheckinAt: true,
+        teamMemberships: { include: { team: true } },
       }
     });
 
-    const { password: _, ...userWithoutPassword } = user;
-    res.json(userWithoutPassword);
+    res.json(user);
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to fetch user' });
