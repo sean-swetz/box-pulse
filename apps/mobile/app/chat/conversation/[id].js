@@ -92,9 +92,9 @@ export default function ConversationScreen() {
     setInputText('');
     setSelectedImage(null);
 
-    // Show optimistic message immediately with local URI so it appears right away
+    const optimisticId = Date.now().toString();
     const optimisticMessage = {
-      id: Date.now().toString(),
+      id: optimisticId,
       userId: user?.id,
       userName: user?.name,
       text: messageText,
@@ -107,14 +107,20 @@ export default function ConversationScreen() {
     setMessages(prev => [...prev, optimisticMessage]);
     setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
 
-    // Upload image to server before saving the message
+    // Upload image first, then replace local URI with Cloudinary URL
     let remoteImageUrl = null;
     if (localImageUri) {
       try {
         const uploadRes = await uploadAPI.image(localImageUri);
         remoteImageUrl = uploadRes.data.url;
+        setMessages(prev => prev.map(m =>
+          m.id === optimisticId ? { ...m, imageUrl: remoteImageUrl } : m
+        ));
       } catch (error) {
         console.error('Image upload failed:', error);
+        Alert.alert('Upload Failed', 'Could not upload image. Please try again.');
+        setMessages(prev => prev.filter(m => m.id !== optimisticId));
+        return;
       }
     }
 
@@ -380,7 +386,7 @@ function MessageBubble({ message, onReact }) {
     return (
       <TouchableOpacity onLongPress={() => setShowReactions(true)} className="items-end">
         <View className="bg-primary rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
-          {message.imageUrl && <Image source={{ uri: message.imageUrl }} className="w-full h-48 rounded-xl mb-2" />}
+          {message.imageUrl && <Image source={{ uri: message.imageUrl }} style={{ width: '100%', height: 200, borderRadius: 12, marginBottom: 8 }} resizeMode="cover" />}
           {message.gifUrl && <Image source={{ uri: message.gifUrl }} className="w-full h-48 rounded-xl mb-2" />}
           {message.text && <Text className="text-background-dark text-base">{message.text}</Text>}
           <Text className="text-background-dark/70 text-xs mt-1">{message.timestamp}</Text>
@@ -412,7 +418,7 @@ function MessageBubble({ message, onReact }) {
     <TouchableOpacity onLongPress={() => setShowReactions(true)} className="items-start">
       <Text className="text-slate-400 text-xs font-medium mb-1 ml-1">{message.userName}</Text>
       <View className="bg-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%]">
-        {message.imageUrl && <Image source={{ uri: message.imageUrl }} className="w-full h-48 rounded-xl mb-2" />}
+        {message.imageUrl && <Image source={{ uri: message.imageUrl }} style={{ width: '100%', height: 200, borderRadius: 12, marginBottom: 8 }} resizeMode="cover" />}
         {message.gifUrl && <Image source={{ uri: message.gifUrl }} className="w-full h-48 rounded-xl mb-2" />}
         {message.text && <Text className="text-white text-base">{message.text}</Text>}
         <Text className="text-slate-400 text-xs mt-1">{message.timestamp}</Text>
