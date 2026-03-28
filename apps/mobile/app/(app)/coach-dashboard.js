@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
-import { MessageCircle, Eye, BarChart2, Building2, ClipboardCheck } from 'lucide-react-native';
+import { MessageCircle, Eye, BarChart2, Building2, ClipboardCheck, UserPlus } from 'lucide-react-native';
 import { useAuthStore } from '../../store/authStore';
 import { coachAPI } from '../../lib/api';
 
@@ -62,6 +62,13 @@ export default function CoachDashboard() {
             >
               <Building2 size={16} color="#94a3b8" strokeWidth={2} />
               <Text className="text-slate-300 font-semibold text-sm">Reports</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/admin/invites')}
+              className="flex-row items-center gap-2 bg-slate-800 px-4 py-2.5 rounded-xl border border-slate-600"
+            >
+              <UserPlus size={16} color="#94a3b8" strokeWidth={2} />
+              <Text className="text-slate-300 font-semibold text-sm">Invite</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -222,8 +222,12 @@ router.get('/:gymId/invites', authenticateToken, async (req, res) => {
     const membership = await prisma.gymMembership.findUnique({
       where: { userId_gymId: { userId: req.user.id, gymId: req.params.gymId } },
     });
-    if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
-      return res.status(403).json({ error: 'Admin access required' });
+    const isCoach = await prisma.gymCoach.findFirst({
+      where: { userId: req.user.id, gymId: req.params.gymId }
+    });
+
+    if ((!membership || (membership.role !== 'owner' && membership.role !== 'admin')) && !isCoach) {
+      return res.status(403).json({ error: 'Admin or coach access required' });
     }
 
     const invites = await prisma.gymInvite.findMany({
@@ -283,8 +287,12 @@ router.post('/:id/invites', authenticateToken, async (req, res) => {
       }
     });
 
-    if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
-      return res.status(403).json({ error: 'Owner or admin access required' });
+    const isCoach = await prisma.gymCoach.findFirst({
+      where: { userId: req.user.id, gymId: req.params.id }
+    });
+
+    if ((!membership || (membership.role !== 'owner' && membership.role !== 'admin')) && !isCoach) {
+      return res.status(403).json({ error: 'Owner, admin, or coach access required' });
     }
 
     const { maxUses, expiresAt } = req.body;
