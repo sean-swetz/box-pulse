@@ -387,7 +387,7 @@ function MessageBubble({ message, onReact }) {
       <TouchableOpacity onLongPress={() => setShowReactions(true)} className="items-end">
         <View className="bg-primary rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
           {message.imageUrl && <Image source={{ uri: message.imageUrl }} style={{ width: '100%', height: 200, borderRadius: 12, marginBottom: 8 }} resizeMode="cover" />}
-          {message.gifUrl && <Image source={{ uri: message.gifUrl }} className="w-full h-48 rounded-xl mb-2" />}
+          {message.gifUrl && <Image source={{ uri: message.gifUrl }} style={{ width: '100%', height: 200, borderRadius: 12, marginBottom: 8 }} resizeMode="cover" />}
           {message.text && <Text className="text-background-dark text-base">{message.text}</Text>}
           <Text className="text-background-dark/70 text-xs mt-1">{message.timestamp}</Text>
         </View>
@@ -419,7 +419,7 @@ function MessageBubble({ message, onReact }) {
       <Text className="text-slate-400 text-xs font-medium mb-1 ml-1">{message.userName}</Text>
       <View className="bg-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%]">
         {message.imageUrl && <Image source={{ uri: message.imageUrl }} style={{ width: '100%', height: 200, borderRadius: 12, marginBottom: 8 }} resizeMode="cover" />}
-        {message.gifUrl && <Image source={{ uri: message.gifUrl }} className="w-full h-48 rounded-xl mb-2" />}
+        {message.gifUrl && <Image source={{ uri: message.gifUrl }} style={{ width: '100%', height: 200, borderRadius: 12, marginBottom: 8 }} resizeMode="cover" />}
         {message.text && <Text className="text-white text-base">{message.text}</Text>}
         <Text className="text-slate-400 text-xs mt-1">{message.timestamp}</Text>
       </View>

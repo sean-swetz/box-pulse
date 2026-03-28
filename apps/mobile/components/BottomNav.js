@@ -13,7 +13,7 @@ const RIGHT_TABS = [
 ];
 
 const BAR_HEIGHT = 122;
-const FAB_SIZE = 86;
+const FAB_SIZE = 100;
 const FAB_LIFT = -18; // px the FAB center rises above the bar top (negative = sinks into bar)
 
 export default function BottomNav() {
@@ -94,9 +94,9 @@ const styles = StyleSheet.create({
   },
   fabLabel: {
     color: '#102216',
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
-    marginTop: 2,
+    marginTop: 3,
     letterSpacing: 0.3,
   },
   bar: {
